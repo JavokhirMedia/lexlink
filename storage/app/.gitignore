@@ -2,3 +2,5 @@
 !private/
 !public/
 !.gitignore
+!lex/
+!lex/laws.json

@@ -98,6 +98,13 @@ export type AiAnalysis = {
     citations: Citation[] | null;
     model: string | null;
     created_at: string;
+    // ai module additions (present when serialized via App\Services\Ai\AiAnalysisPresenter)
+    prompt_version?: string | null;
+    tokens?: number;
+    cost?: number;
+    disclaimer?: string;
+    data_request_id?: number | null;
+    case_id?: number | null;
 };
 
 export type AuditEntry = {
@@ -123,4 +130,40 @@ export type Plan = {
     extra_price: number | null;
     included_ai: number;
     features: string[] | null;
+};
+
+// ---- ai module ----
+
+export type AlimonyOption = {
+    children: number;
+    label: string;
+    share: string; // "1/4"
+    share_value: number;
+    by_share: number;
+    amount: number; // max(by_share, 26.5% of min wage per child)
+    floor_applied: boolean;
+};
+
+/** structured.alimony of a salary AiAnalysis — computed in PHP (App\Services\Ai\AlimonyCalculator). */
+export type AlimonyCalculation = {
+    period: { from: string | null; to: string | null };
+    months_count: number;
+    total_income: number;
+    average_monthly: number;
+    monthly: { period: string; amount: number }[];
+    children: number | null;
+    min_wage: number;
+    min_per_child: number;
+    options: AlimonyOption[];
+    selected: AlimonyOption | null;
+    legal_basis: string;
+};
+
+export type LawAnswer = {
+    answer: string;
+    citations: Citation[];
+    model: string;
+    tokens: number;
+    prompt_version: string;
+    disclaimer: string;
 };

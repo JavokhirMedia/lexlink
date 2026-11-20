@@ -18,21 +18,24 @@ export function Breadcrumbs({
     return (
         <>
             {breadcrumbs.length > 0 && (
-                <Breadcrumb>
-                    <BreadcrumbList>
+                <Breadcrumb aria-label="Navigatsiya yo'li">
+                    <BreadcrumbList className="flex-nowrap text-[13px]">
                         {breadcrumbs.map((item, index) => {
                             const isLast = index === breadcrumbs.length - 1;
 
                             return (
                                 <Fragment key={index}>
-                                    <BreadcrumbItem>
+                                    <BreadcrumbItem className="min-w-0">
                                         {isLast ? (
-                                            <BreadcrumbPage>
+                                            <BreadcrumbPage className="truncate font-medium">
                                                 {item.title}
                                             </BreadcrumbPage>
                                         ) : (
                                             <BreadcrumbLink asChild>
-                                                <Link href={item.href}>
+                                                <Link
+                                                    href={item.href}
+                                                    className="truncate"
+                                                >
                                                     {item.title}
                                                 </Link>
                                             </BreadcrumbLink>

@@ -2,59 +2,73 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
+use App\Models\AdvocateProfile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
+ * Users sign in via OneID only (no passwords). Default state = onboarded lawyer.
+ *
  * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
     /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
-
-    /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
+        $pinfl = (string) fake()->unique()->numerify('3#############');
+
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => null,
+            'oneid_sub' => 'oneid-'.Str::lower(Str::random(16)),
+            'pinfl' => $pinfl,
+            'phone' => '+99890'.fake()->numerify('#######'),
+            'role' => UserRole::Lawyer,
             'remember_token' => Str::random(10),
-            'two_factor_secret' => null,
-            'two_factor_recovery_codes' => null,
-            'two_factor_confirmed_at' => null,
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
+    /** Fresh OneID user who has not finished onboarding yet. */
+    public function unonboarded(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        return $this->state(fn () => ['role' => null]);
     }
 
-    /**
-     * Indicate that the model has two-factor authentication configured.
-     */
-    public function withTwoFactor(): static
+    public function lawyer(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'two_factor_secret' => encrypt('secret'),
-            'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
-            'two_factor_confirmed_at' => now(),
-        ]);
+        return $this->state(fn () => ['role' => UserRole::Lawyer]);
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn () => ['role' => UserRole::Admin]);
+    }
+
+    /** Advocate with an AdvocateProfile in the given licence status (active|revoked|suspended). */
+    public function advocate(string $licenseStatus = 'active', ?string $licenseNumber = null): static
+    {
+        return $this->state(fn () => ['role' => UserRole::Advocate])
+            ->afterCreating(function (User $user) use ($licenseStatus, $licenseNumber) {
+                AdvocateProfile::create([
+                    'user_id' => $user->id,
+                    'license_number' => $licenseNumber ?? 'ADV-'.fake()->unique()->numerify('#####'),
+                    'license_status' => $licenseStatus,
+                    'bureau_name' => 'Demo advokatlik byurosi',
+                    'verified_at' => now(),
+                    'last_checked_at' => now(),
+                ]);
+            });
+    }
+
+    public function unverified(): static
+    {
+        return $this->state(fn () => ['email_verified_at' => null]);
     }
 }

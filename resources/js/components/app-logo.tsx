@@ -1,18 +1,21 @@
-import { usePage } from '@inertiajs/react';
+import { LogoMark } from '@/components/brand/logo';
 
-import AppLogoIcon from '@/components/app-logo-icon';
-
+/** Sidebar / header brand lockup (sits inside a SidebarMenuButton size="lg"). */
 export default function AppLogo() {
-    const { name } = usePage().props;
-
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <AppLogoIcon className="size-5 fill-current text-white dark:text-black" />
+            <div className="flex aspect-square size-8 items-center justify-center">
+                <LogoMark
+                    accent="var(--sidebar-primary)"
+                    className="size-8 text-current"
+                />
             </div>
-            <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate leading-tight font-semibold">
-                    {name}
+            <div className="ml-1 grid flex-1 text-left leading-none">
+                <span className="truncate text-[15px] font-semibold tracking-tight">
+                    Lex<span className="text-sidebar-primary">Link</span>
+                </span>
+                <span className="mt-1 truncate text-[11px] text-sidebar-muted">
+                    Advokat so'rovlari platformasi
                 </span>
             </div>
         </>

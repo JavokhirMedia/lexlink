@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Services\Gov\GovDataProvider;
+use App\Services\Gov\MockGovProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -15,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(GovDataProvider::class, MockGovProvider::class); // mock-gov
         //
     }
 
@@ -23,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (app()->isProduction()) {
+            URL::forceScheme('https'); // devops: behind Cloudflare
+        }
+
         $this->configureDefaults();
     }
 

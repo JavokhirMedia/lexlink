@@ -11,14 +11,16 @@ configureEcho({
     broadcaster: 'reverb',
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'LexLink';
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
-                return null;
+            case name.startsWith('onboarding/'):
+            case name.startsWith('invites/'):
+                return null; // these pages render their own shell
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):
@@ -37,7 +39,7 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: '#4B5563',
+        color: '#1e3a6e',
     },
 });
 

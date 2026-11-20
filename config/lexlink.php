@@ -30,6 +30,16 @@ return [
         'gemini_key' => env('GEMINI_API_KEY'),
         'gemini_model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
         'gemini_embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
-        'disclaimer' => "Bu yuridik maslahat emas — yordamchi tahlil. Yakuniy qaror advokat zimmasida.",
+        'disclaimer' => 'Bu yuridik maslahat emas — yordamchi tahlil. Yakuniy qaror advokat zimmasida.',
+        // --- ai module additions ---
+        'gemini_base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'embedding_dimensions' => (int) env('GEMINI_EMBEDDING_DIMENSIONS', 768),
+        'timeout' => (int) env('GEMINI_TIMEOUT', 60),
+        'temperature' => 0.2,
+        'prompt_version' => 'v1',
+        // Oila kodeksi 99-modda 2-qism: per child alimony >= 26.5% of the statutory minimum wage
+        // (mehnatga haq to'lashning eng kam miqdori). Verify the current figure before the pitch.
+        'min_wage' => (int) env('LEXLINK_MIN_WAGE', 1271000),
+        'alimony_min_share_of_min_wage' => 0.265,
     ],
 ];

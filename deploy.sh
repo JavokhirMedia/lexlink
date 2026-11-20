@@ -114,6 +114,10 @@ if [ "$FRESH_SEED" = 1 ]; then
   "${DC[@]}" run --rm -T --no-deps -e APP_ENV=demo app php artisan migrate:fresh --seed --force </dev/null
 fi
 
+log "lex.uz knowledge base (offline snapshot)"
+"${DC[@]}" run --rm -T --no-deps app php artisan lex:import --from-snapshot </dev/null || true
+"${DC[@]}" run --rm -T --no-deps app php artisan lex:embed </dev/null || true
+
 log "up (recreate app services)"
 "${DC[@]}" up -d --remove-orphans --force-recreate app horizon reverb scheduler nginx
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LawChunk extends Model
 {
-    protected $fillable = ['law_document_id', 'article_number', 'article_title', 'content', 'embedding', 'token_count'];
+    protected $fillable = ['law_document_id', 'article_number', 'article_title', 'anchor', 'chapter', 'part', 'content', 'content_hash', 'embedding', 'token_count'];
 
     protected $hidden = ['embedding'];
 
