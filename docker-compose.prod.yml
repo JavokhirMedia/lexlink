@@ -1,0 +1,144 @@
+# Production stack for one VPS. Run via ./deploy.sh, or on the server:
+#   cd /opt/lexlink/src && docker compose -p lexlink -f docker-compose.prod.yml --env-file /opt/lexlink/.env <cmd>
+name: lexlink
+
+x-app: &app
+  image: lexlink-app:latest
+  restart: unless-stopped
+  volumes:
+    - ${LEXLINK_ENV_PATH:-/opt/lexlink/.env}:/var/www/html/.env:ro
+    - storage_public:/var/www/html/storage/app/public
+    - storage_private:/var/www/html/storage/app/private
+    - storage_logs:/var/www/html/storage/logs
+  depends_on:
+    mysql: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  networks: [lexlink]
+
+services:
+  app:
+    <<: *app
+    build:
+      context: .
+      target: app
+      args:
+        VITE_APP_NAME: ${APP_NAME:-LexLink}
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+        VITE_REVERB_HOST: ${VITE_REVERB_HOST:-hackathon.john.uz}
+        VITE_REVERB_PORT: ${VITE_REVERB_PORT:-443}
+        VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-https}
+    command: ["php-fpm"]
+    healthcheck:
+      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  horizon:
+    <<: *app
+    command: ["php", "artisan", "horizon"]
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan horizon:status | grep -qi running"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  reverb:
+    <<: *app
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  scheduler:
+    <<: *app
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      test: ["CMD-SHELL", "cat /proc/1/cmdline | tr '\\0' ' ' | grep -q schedule:work"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: lexlink-nginx:latest
+    build:
+      context: .
+      target: nginx
+      args:
+        VITE_APP_NAME: ${APP_NAME:-LexLink}
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY}
+        VITE_REVERB_HOST: ${VITE_REVERB_HOST:-hackathon.john.uz}
+        VITE_REVERB_PORT: ${VITE_REVERB_PORT:-443}
+        VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-https}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${LEXLINK_CERTS_PATH:-/opt/lexlink/certs}:/etc/nginx/certs:ro
+      - storage_public:/var/www/html/storage/app/public:ro
+    depends_on:
+      app: { condition: service_started }
+      reverb: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/up >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      lexlink:
+        aliases: [lexlink-nginx]
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: UTC
+    command:
+      - --innodb-buffer-pool-size=512M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [lexlink]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [lexlink]
+
+volumes:
+  mysql_data:
+  redis_data:
+  storage_public:
+  storage_private:
+  storage_logs:
+
+networks:
+  lexlink:
