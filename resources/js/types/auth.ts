@@ -11,7 +11,8 @@ export type User = {
 };
 
 export type Auth = {
-    user: User;
+    user: User & import('./lexlink').SharedAuthUser;
+    wallet_balance: number | null;
 };
 
 export type Passkey = {

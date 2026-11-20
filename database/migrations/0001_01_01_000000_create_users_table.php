@@ -14,9 +14,14 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('email')->unique();
+            $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            $table->string('password')->nullable();
+            $table->string('oneid_sub')->nullable()->unique();
+            $table->text('pinfl')->nullable(); // encrypted
+            $table->string('pinfl_hash', 64)->nullable()->index(); // sha256 for lookup
+            $table->string('phone', 32)->nullable()->index();
+            $table->string('role', 16)->nullable()->index(); // advocate|lawyer|admin; null = onboarding not finished
             $table->rememberToken();
             $table->timestamps();
         });

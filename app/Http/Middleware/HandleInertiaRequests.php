@@ -39,8 +39,22 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'phone' => $request->user()->phone,
+                    'role' => $request->user()->role?->value,
+                    'role_label' => $request->user()->role?->label(),
+                    'license' => $request->user()->advocateProfile ? [
+                        'number' => $request->user()->advocateProfile->license_number,
+                        'status' => $request->user()->advocateProfile->license_status,
+                    ] : null,
+                    'can_sign' => $request->user()->hasActiveLicense(),
+                ] : null,
+                'wallet_balance' => fn () => $request->user()?->wallet?->balance,
             ],
+            'ai_disclaimer' => config('lexlink.ai.disclaimer'),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

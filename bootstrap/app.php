@@ -14,8 +14,20 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
+        then: function () {
+            // Fictional government APIs; middleware is applied inside the route file.
+            \Illuminate\Support\Facades\Route::prefix('mock-gov/v1')->name('mock-gov.')
+                ->group(base_path('routes/mock-gov.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*'); // Cloudflare -> nginx -> php-fpm
+
+        $middleware->alias([
+            'onboarded' => \App\Http\Middleware\EnsureOnboarded::class,
+            'role' => \App\Http\Middleware\EnsureRole::class,
+        ]);
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
