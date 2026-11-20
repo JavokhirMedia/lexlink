@@ -120,7 +120,7 @@ log "up (recreate app services)"
 log "health check"
 ok=0
 for i in $(seq 1 30); do
-  if curl -fsS -o /dev/null http://localhost/up; then ok=1; break; fi
+  if curl -fs -o /dev/null http://localhost/up 2>/dev/null; then ok=1; break; fi
   sleep 2
 done
 "${DC[@]}" ps --format 'table {{.Service}}\t{{.Status}}'
