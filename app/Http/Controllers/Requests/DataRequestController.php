@@ -301,6 +301,11 @@ class DataRequestController extends Controller
         $draft->subject_pinfl_masked = Pinfl::mask($attrs['subject_pinfl']);
         $draft->setRelation('legalCase', $case);
 
+        // Attach the covering legal basis so drafted text cites the real decision/order number.
+        $basis = $this->service->checkBasis($draft)['basis'];
+        $draft->legal_basis_id = $basis?->id;
+        $draft->setRelation('legalBasis', $basis);
+
         return $draft;
     }
 
