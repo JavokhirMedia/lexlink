@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\AuditAction;
+use App\Models\AiAnalysis;
 use App\Models\RequestResponse;
 use App\Services\AuditLogger;
 use Illuminate\Console\Attributes\Description;
@@ -32,7 +33,7 @@ class PurgeExpiredResponses extends Command
                     $resp->forceFill(['payload' => null, 'pdf_path' => null, 'purged_at' => now()])->save();
 
                     // AI analyses of this response keep only the masked text: drop the placeholder->real-value map.
-                    \App\Models\AiAnalysis::where('data_request_id', $resp->data_request_id)->get()
+                    AiAnalysis::where('data_request_id', $resp->data_request_id)->get()
                         ->each(function ($a) {
                             $s = (array) ($a->structured ?? []);
                             if (array_key_exists('_pii', $s)) {

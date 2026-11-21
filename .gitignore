@@ -43,3 +43,6 @@ yarn-error.log
 /boost.json
 /opencode.json
 /opencode.jsonc
+
+# local deploy target (server address, ssh key path)
+.deploy.env

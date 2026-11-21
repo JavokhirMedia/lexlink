@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\DataRequestStatus;
 use App\Enums\LegalBasisType;
 use App\Jobs\FetchGovResultJob;
+use App\Models\AiAnalysis;
 use App\Models\AuditLog;
 use App\Models\CaseMember;
 use App\Models\DataRequest;
@@ -331,7 +332,7 @@ class DataRequestFlowTest extends TestCase
         Storage::disk('local')->assertMissing("responses/request-{$r->id}.pdf");
         $this->assertTrue(AuditLog::where('action', AuditAction::ResponsePurged)->exists());
         // the AI placeholder->real-value map is wiped together with the payload
-        foreach (\App\Models\AiAnalysis::where('data_request_id', $r->id)->get() as $a) {
+        foreach (AiAnalysis::where('data_request_id', $r->id)->get() as $a) {
             $this->assertArrayNotHasKey('_pii', (array) $a->structured);
         }
 

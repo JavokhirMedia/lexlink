@@ -11,7 +11,7 @@ class EnsureRole
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        abort_unless($request->user() && in_array($request->user()->role?->value, $roles, true), 403, "Bu amal sizning rolingiz uchun ruxsat etilmagan.");
+        abort_unless($request->user() && in_array($request->user()->role?->value, $roles, true), 403, 'Bu amal sizning rolingiz uchun ruxsat etilmagan.');
 
         return $next($request);
     }

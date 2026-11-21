@@ -1,11 +1,14 @@
 <?php
 
+use App\Http\Middleware\EnsureOnboarded;
+use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function () {
             // Fictional government APIs; middleware is applied inside the route file.
-            \Illuminate\Support\Facades\Route::prefix('mock-gov/v1')->name('mock-gov.')
+            Route::prefix('mock-gov/v1')->name('mock-gov.')
                 ->group(base_path('routes/mock-gov.php'));
         },
     )
@@ -23,8 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*'); // Cloudflare -> nginx -> php-fpm
 
         $middleware->alias([
-            'onboarded' => \App\Http\Middleware\EnsureOnboarded::class,
-            'role' => \App\Http\Middleware\EnsureRole::class,
+            'onboarded' => EnsureOnboarded::class,
+            'role' => EnsureRole::class,
         ]);
 
         $middleware->encryptCookies(except: ['sidebar_state']);

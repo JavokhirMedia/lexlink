@@ -6,6 +6,7 @@ use App\Services\Ai\AiAnalysisPresenter;
 use App\Services\Ai\AiService;
 use App\Services\BillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -37,10 +38,10 @@ class FallbackAiServiceTest extends TestCase
         $this->assertNotEmpty($analysis->citations);
 
         // the placeholder->real-name map is encrypted at rest (raw DB value must not contain the name)
-        $raw = \Illuminate\Support\Facades\DB::table('ai_analyses')->where('id', $analysis->id)->value('structured');
+        $raw = DB::table('ai_analyses')->where('id', $analysis->id)->value('structured');
         $this->assertStringNotContainsString(self::ADVOCATE_NAME, (string) $raw);
         $this->assertIsString(json_decode((string) $raw, true)['_pii'] ?? null);
-        $this->assertNotNull(\App\Services\Ai\AiAnalysisPresenter::present($analysis->fresh()));
+        $this->assertNotNull(AiAnalysisPresenter::present($analysis->fresh()));
 
         // purge drops the map entirely
         $analysis->dataRequest->response->update(['expires_at' => now()->subMinute()]);

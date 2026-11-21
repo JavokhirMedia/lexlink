@@ -29,7 +29,7 @@ class FakeGovProvider implements GovDataProvider
     public function advocateLicense(string $licenseNumber): ?array
     {
         if ($this->registryDown) {
-            throw new \App\Services\Gov\GovApiException('registry unavailable');
+            throw new GovApiException('registry unavailable');
         }
         $profile = AdvocateProfile::with('user')->where('license_number', $licenseNumber)->first();
 
