@@ -1,10 +1,9 @@
 import { Head, Link, router, useHttp } from "@inertiajs/react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import { ArrowLeft, CreditCard, Lock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import InputError from "@/components/input-error";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +18,8 @@ import {
     index as billingIndex,
 } from "@/routes/billing";
 import { complete, prepare } from "@/routes/billing/mock";
-import { formatNumber } from "@/components/brand/money";
+import { formatMoney } from "@/components/brand/money";
+import { PageHeader } from "@/components/brand/page-header";
 
 type Props = {
     provider: { code: "click" | "payme"; name: string };
@@ -43,8 +43,6 @@ type Completed = {
     balance: number;
     redirect: string;
 };
-
-const nf = { format: (n: number) => formatNumber(n) };
 
 const formatCard = (v: string) =>
     v
@@ -101,49 +99,72 @@ export default function Checkout({
     return (
         <>
             <Head title={`${provider.name} orqali to'lov`} />
-            <div className="flex flex-1 items-start justify-center">
-                <div className="w-full max-w-md overflow-hidden rounded-xl border bg-card shadow-sm">
-                    <div className="flex items-center justify-between border-b px-5 py-4">
-                        <div className="flex items-center gap-2">
-                            <CreditCard
-                                className="size-5 text-muted-foreground"
-                                aria-hidden
-                            />
-                            <span className="font-semibold">
-                                {provider.name}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                                to'lov sahifasi
-                            </span>
-                        </div>
-                        <Badge
-                            variant="outline"
-                            className="border-amber-500 text-amber-700 dark:text-amber-400"
-                        >
+            <div className="flex flex-col gap-8">
+                <PageHeader
+                    title="Balansni to'ldirish"
+                    description={`${provider.name} orqali to'lov. Demo rejimida haqiqiy pul yechilmaydi`}
+                />
+
+                <section
+                    aria-label="To'lov"
+                    className="w-full max-w-[480px] overflow-hidden rounded-xl border bg-card shadow-xs"
+                >
+                    <div className="flex items-center justify-between gap-3 border-b px-6 py-4">
+                        <span className="text-base font-semibold text-ink">
+                            {provider.name}
+                        </span>
+                        <span className="inline-flex h-6 items-center rounded-sm border border-warning-border bg-warning-soft px-2 text-xs font-medium text-warning">
                             DEMO to'lov
-                        </Badge>
+                        </span>
                     </div>
 
-                    <div className="flex items-baseline justify-between border-b bg-muted/30 px-5 py-4">
-                        <div>
-                            <p className="text-xs text-muted-foreground">
+                    <dl className="flex items-end justify-between gap-4 border-b bg-page px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                            <dt className="text-meta text-ink-muted">
                                 Qabul qiluvchi
-                            </p>
-                            <p className="text-sm font-medium">
-                                LexLink — balansni to'ldirish
-                            </p>
+                            </dt>
+                            <dd className="text-sm font-medium text-ink">
+                                LexLink, balansni to'ldirish
+                            </dd>
                         </div>
-                        <p className="text-xl font-semibold tabular-nums">
-                            {nf.format(amount)} so'm
-                        </p>
-                    </div>
+                        <div className="flex flex-col items-end gap-1">
+                            <dt className="text-meta text-ink-muted">Summa</dt>
+                            <dd className="text-section-title text-ink tabular-nums">
+                                {formatMoney(amount)}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <ol
+                        className="flex gap-4 px-6 pt-5 text-meta"
+                        aria-label="Bosqichlar"
+                    >
+                        <li
+                            className={
+                                prepared
+                                    ? "text-ink-muted"
+                                    : "font-medium text-ink"
+                            }
+                        >
+                            1. Karta
+                        </li>
+                        <li
+                            className={
+                                prepared
+                                    ? "font-medium text-ink"
+                                    : "text-ink-muted"
+                            }
+                        >
+                            2. SMS tasdiq
+                        </li>
+                    </ol>
 
                     {!prepared ? (
                         <form
                             onSubmit={submitCard}
-                            className="flex flex-col gap-4 px-5 py-5"
+                            className="flex flex-col gap-5 px-6 pt-4 pb-6"
                         >
-                            <div className="grid gap-2">
+                            <div className="flex flex-col gap-2">
                                 <Label htmlFor="card_number">
                                     Karta raqami
                                 </Label>
@@ -158,38 +179,39 @@ export default function Checkout({
                                             formatCard(e.target.value),
                                         )
                                     }
-                                    className="font-mono tabular-nums"
+                                    className="h-11 font-mono text-base tracking-wide tabular-nums"
                                 />
                                 <InputError message={card.errors.card_number} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="expiry">
-                                        Amal qilish muddati
-                                    </Label>
-                                    <Input
-                                        id="expiry"
-                                        inputMode="numeric"
-                                        autoComplete="cc-exp"
-                                        placeholder="OO/YY"
-                                        value={card.data.expiry}
-                                        onChange={(e) =>
-                                            card.setData(
-                                                "expiry",
-                                                formatExpiry(e.target.value),
-                                            )
-                                        }
-                                        className="font-mono tabular-nums"
-                                    />
-                                    <InputError message={card.errors.expiry} />
-                                </div>
+                            <div className="flex flex-col gap-2 sm:w-40">
+                                <Label htmlFor="expiry">
+                                    Amal qilish muddati
+                                </Label>
+                                <Input
+                                    id="expiry"
+                                    inputMode="numeric"
+                                    autoComplete="cc-exp"
+                                    placeholder="OO/YY"
+                                    value={card.data.expiry}
+                                    onChange={(e) =>
+                                        card.setData(
+                                            "expiry",
+                                            formatExpiry(e.target.value),
+                                        )
+                                    }
+                                    className="h-11 font-mono text-base tabular-nums"
+                                />
+                                <InputError message={card.errors.expiry} />
                             </div>
                             <InputError message={card.errors.amount} />
-                            <p className="text-xs text-muted-foreground">
-                                Test karta oldindan to'ldirilgan. Haqiqiy pul
-                                yechilmaydi.
+                            <p className="text-meta text-ink-muted">
+                                Test karta oldindan to'ldirilgan
                             </p>
-                            <Button type="submit" disabled={card.processing}>
+                            <Button
+                                type="submit"
+                                size="lg"
+                                disabled={card.processing}
+                            >
                                 {card.processing && <Spinner />}
                                 SMS kod olish
                             </Button>
@@ -197,21 +219,21 @@ export default function Checkout({
                     ) : (
                         <form
                             onSubmit={submitOtp}
-                            className="flex flex-col gap-4 px-5 py-5"
+                            className="flex flex-col gap-5 px-6 pt-4 pb-6"
                         >
-                            <div className="text-sm">
-                                <p>
-                                    Karta:{" "}
-                                    <span className="font-mono">
+                            <div className="flex flex-col gap-1 text-sm">
+                                <p className="text-ink">
+                                    Karta{" "}
+                                    <span className="font-mono tabular-nums">
                                         {prepared.card_masked}
                                     </span>
                                 </p>
-                                <p className="text-muted-foreground">
+                                <p className="text-ink-secondary">
                                     {prepared.phone_masked} raqamiga SMS kod
-                                    yuborildi.
+                                    yuborildi
                                 </p>
                             </div>
-                            <div className="grid gap-2">
+                            <div className="flex flex-col gap-2">
                                 <Label htmlFor="otp">SMS kod</Label>
                                 <InputOTP
                                     id="otp"
@@ -227,12 +249,12 @@ export default function Checkout({
                                         ))}
                                     </InputOTPGroup>
                                 </InputOTP>
-                                <p className="text-xs text-muted-foreground">
-                                    Demo kod:{" "}
-                                    <span className="font-mono">
+                                <p className="text-meta text-ink-muted">
+                                    Demo kod{" "}
+                                    <span className="font-mono text-ink">
                                         {demo_code}
-                                    </span>{" "}
-                                    (istalgan 6 raqam qabul qilinadi)
+                                    </span>
+                                    , istalgan 6 raqam qabul qilinadi
                                 </p>
                                 <InputError
                                     message={
@@ -240,10 +262,11 @@ export default function Checkout({
                                     }
                                 />
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col-reverse gap-2 sm:flex-row">
                                 <Button
                                     type="button"
                                     variant="outline"
+                                    size="lg"
                                     onClick={() => {
                                         setPrepared(null);
                                         otp.reset();
@@ -253,6 +276,7 @@ export default function Checkout({
                                 </Button>
                                 <Button
                                     type="submit"
+                                    size="lg"
                                     className="flex-1"
                                     disabled={
                                         otp.processing ||
@@ -260,26 +284,29 @@ export default function Checkout({
                                     }
                                 >
                                     {otp.processing && <Spinner />}
-                                    {nf.format(amount)} so'm to'lash
+                                    {formatMoney(amount)} to'lash
                                 </Button>
                             </div>
                         </form>
                     )}
 
-                    <div className="flex items-center justify-between border-t px-5 py-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                            <Lock className="size-3.5" aria-hidden />
-                            Joriy balans: {nf.format(balance)} so'm
+                    <div className="flex items-center justify-between gap-3 border-t px-6 py-3 text-meta text-ink-muted">
+                        <span className="tabular-nums">
+                            Joriy balans {formatMoney(balance)}
                         </span>
                         <Link
                             href={billingIndex()}
-                            className="flex items-center gap-1 hover:text-foreground"
+                            className="focus-ring flex items-center gap-1 rounded-sm transition-colors hover:text-ink"
                         >
-                            <ArrowLeft className="size-3.5" aria-hidden />
+                            <ArrowLeft
+                                className="size-4"
+                                strokeWidth={1.5}
+                                aria-hidden
+                            />
                             Bekor qilish
                         </Link>
                     </div>
-                </div>
+                </section>
             </div>
         </>
     );

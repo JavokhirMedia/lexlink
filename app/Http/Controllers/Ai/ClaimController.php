@@ -83,12 +83,12 @@ class ClaimController extends Controller
                 'court' => $data['court'] ?? null,
             ]));
         } catch (InsufficientBalance $e) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage() ?: "Balans yetarli emas. Balansni to'ldiring."]);
+            Inertia::flash('toast', ['type' => 'error', 'message' => $e->getMessage() ?: "Balans yetarli emas — balansni to'ldiring"]);
 
             return back();
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => "Da'vo arizasi loyihasi tayyorlandi."]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Da'vo arizasi loyihasi tayyorlandi"]);
 
         return to_route('ai.claim.show', $legalCase);
     }

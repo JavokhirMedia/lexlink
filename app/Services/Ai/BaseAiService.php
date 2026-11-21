@@ -663,6 +663,8 @@ abstract class BaseAiService implements AiService
             default => '',
         };
 
+        $refsLine = trim((string) $refs) !== '' ? "Huquqiy asoslar: {$refs}.\n\n" : '';
+
         return <<<TXT
         {$agency}ga
 
@@ -677,9 +679,7 @@ abstract class BaseAiService implements AiService
 
         Advokatura toʻgʻrisidagi Qonunning 7¹-moddasiga koʻra axborot soʻrov olingan sanadan eʼtiboran oʻn besh kundan kechiktirmay taqdim etiladi. Javobni elektron shaklda LexLink axborot tizimi orqali yuborishingizni soʻrayman.
 
-        Huquqiy asoslar: {$refs}.
-
-        Ilova: {$v['attachments']}.
+        {$refsLine}Ilova: {$v['attachments']}.
 
         Advokat {$v['advocate']} (litsenziya № {$v['license']}) — ERI bilan imzolanadi.
         TXT;

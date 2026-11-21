@@ -1,26 +1,46 @@
 import { Head, Link, router } from "@inertiajs/react";
-import { ChevronRight, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
+import { EmptyState } from "@/components/brand/empty-state";
 import { MaskedPinfl } from "@/components/brand/masked-pinfl";
+import { formatDate, formatNumber } from "@/components/brand/money";
 import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
 import { StatusBadge } from "@/components/brand/status-badge";
+import { DeadlineChip } from "@/components/orders/deadline-chip";
 import { RequestTypeIcon } from "@/components/requests/request-type-icon";
-import { formatDateTime } from "@/components/requests/types";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { index as requestsIndex, show as requestShow } from "@/routes/requests";
 import type {
     DataRequest,
     DataRequestStatus,
     DataRequestType,
+    RequestDeadlineFields,
 } from "@/types/lexlink";
 
-type Row = DataRequest & {
-    case: {
-        id: number;
-        title: string;
-        court_case_number: string | null;
-    } | null;
-};
+type Row = DataRequest &
+    Partial<RequestDeadlineFields> & {
+        case: {
+            id: number;
+            title: string;
+            court_case_number: string | null;
+        } | null;
+    };
 
 type Props = {
     requests: {
@@ -36,31 +56,16 @@ type Props = {
     types: { value: DataRequestType; label: string; agency: string }[];
 };
 
-function Chip({
-    active,
-    onClick,
-    children,
-}: {
-    active: boolean;
-    onClick: () => void;
-    children: React.ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-pressed={active}
-            className={cn(
-                "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground hover:bg-muted",
-            )}
-        >
-            {children}
-        </button>
-    );
-}
+const ALL = "all";
+
+/** Mirrors DeadlineChip: open requests, or answered ones with an on-time verdict. */
+const showsDeadline = (r: Row) =>
+    !!r.due_at &&
+    (r.status === "submitted" ||
+        r.status === "processing" ||
+        (r.status === "completed" &&
+            r.answered_on_time !== null &&
+            r.answered_on_time !== undefined));
 
 export default function RequestsIndex({
     requests,
@@ -80,163 +85,277 @@ export default function RequestsIndex({
         );
     };
 
+    const filtered = !!(filters.status || filters.type);
+
     return (
         <>
             <Head title="So'rovlar" />
             <div className="flex flex-col gap-8">
                 <PageHeader
                     title="So'rovlar"
-                    description="Sizning ishlaringiz bo'yicha idoralarga yuborilgan barcha so'rovlar. Yangi so'rov ish sahifasidan yaratiladi."
+                    description="Ishlaringiz bo'yicha idoralarga yuborilgan so'rovlar. Yangi so'rov ish sahifasidan yaratiladi"
                 />
 
-                <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="mr-1 text-xs text-muted-foreground">
-                            Holat:
-                        </span>
-                        <Chip
-                            active={!filters.status}
-                            onClick={() => apply({ status: null })}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                    <div className="flex flex-col gap-2 sm:w-64">
+                        <Label htmlFor="filter-status">Holat</Label>
+                        <Select
+                            value={filters.status ?? ALL}
+                            onValueChange={(v) =>
+                                apply({
+                                    status:
+                                        v === ALL
+                                            ? null
+                                            : (v as DataRequestStatus),
+                                })
+                            }
                         >
-                            Barchasi
-                        </Chip>
-                        {statuses.map((s) => (
-                            <Chip
-                                key={s.value}
-                                active={filters.status === s.value}
-                                onClick={() => apply({ status: s.value })}
-                            >
-                                {s.label}
-                            </Chip>
-                        ))}
+                            <SelectTrigger id="filter-status" className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={ALL}>Barchasi</SelectItem>
+                                {statuses.map((s) => (
+                                    <SelectItem key={s.value} value={s.value}>
+                                        {s.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="mr-1 text-xs text-muted-foreground">
-                            Turi:
-                        </span>
-                        <Chip
-                            active={!filters.type}
-                            onClick={() => apply({ type: null })}
+                    <div className="flex flex-col gap-2 sm:w-72">
+                        <Label htmlFor="filter-type">Ma'lumot turi</Label>
+                        <Select
+                            value={filters.type ?? ALL}
+                            onValueChange={(v) =>
+                                apply({
+                                    type:
+                                        v === ALL
+                                            ? null
+                                            : (v as DataRequestType),
+                                })
+                            }
                         >
-                            Barchasi
-                        </Chip>
-                        {types.map((t) => (
-                            <Chip
-                                key={t.value}
-                                active={filters.type === t.value}
-                                onClick={() => apply({ type: t.value })}
-                            >
-                                {t.label}
-                            </Chip>
-                        ))}
+                            <SelectTrigger id="filter-type" className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={ALL}>Barchasi</SelectItem>
+                                {types.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>
+                                        {t.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
+                    {filtered && (
+                        <Button
+                            variant="ghost"
+                            onClick={() => apply({ status: null, type: null })}
+                        >
+                            Filtrni tozalash
+                        </Button>
+                    )}
+                    <p className="text-xs text-ink-muted tabular-nums sm:ml-auto sm:pb-3">
+                        Jami {formatNumber(requests.total)} ta
+                    </p>
                 </div>
 
                 {requests.data.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
-                        <Inbox className="size-6" aria-hidden />
-                        So'rovlar topilmadi.
-                    </div>
+                    <EmptyState
+                        icon={Inbox}
+                        title={
+                            filtered
+                                ? "Filtr bo'yicha so'rov topilmadi"
+                                : "Hali so'rov yo'q"
+                        }
+                        description={
+                            filtered
+                                ? undefined
+                                : "So'rov ish sahifasida, huquqiy asos qo'shilgandan keyin yaratiladi"
+                        }
+                    />
                 ) : (
-                    <div className="overflow-x-auto rounded-md border">
-                        <table className="w-full text-sm">
-                            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-                                <tr>
-                                    <th className="px-4 py-2 font-medium">№</th>
-                                    <th className="px-4 py-2 font-medium">
-                                        Turi / idora
-                                    </th>
-                                    <th className="px-4 py-2 font-medium">
-                                        Ish
-                                    </th>
-                                    <th className="px-4 py-2 font-medium">
-                                        Shaxs
-                                    </th>
-                                    <th className="px-4 py-2 font-medium">
-                                        Sana
-                                    </th>
-                                    <th className="px-4 py-2 font-medium">
-                                        Holat
-                                    </th>
-                                    <th className="w-8" />
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {requests.data.map((r) => (
-                                    <tr
-                                        key={r.id}
-                                        className="cursor-pointer hover:bg-muted/40"
-                                        onClick={() =>
-                                            router.visit(requestShow.url(r.id))
-                                        }
-                                    >
-                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                                            #{r.id}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <Link
-                                                href={requestShow.url(r.id)}
-                                                className="inline-flex items-center gap-1.5 font-medium hover:underline"
-                                                onClick={(e) =>
-                                                    e.stopPropagation()
-                                                }
-                                            >
-                                                <RequestTypeIcon
-                                                    type={r.type}
-                                                    className="size-4 shrink-0 text-muted-foreground"
+                    <>
+                        {/* Desktop: table */}
+                        <div className="hidden overflow-hidden rounded-lg border bg-card shadow-xs md:block">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead>So'rov</TableHead>
+                                        <TableHead>Ish</TableHead>
+                                        <TableHead>Shaxs</TableHead>
+                                        <TableHead>Holat</TableHead>
+                                        <TableHead>Javob muddati</TableHead>
+                                        <TableHead className="text-right">
+                                            Sana
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {requests.data.map((r) => (
+                                        <TableRow
+                                            key={r.id}
+                                            className="cursor-pointer"
+                                            onClick={() =>
+                                                router.visit(
+                                                    requestShow.url(r.id),
+                                                )
+                                            }
+                                        >
+                                            <TableCell className="py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <RequestTypeIcon
+                                                        type={r.type}
+                                                        className="size-4 shrink-0 text-ink-secondary"
+                                                    />
+                                                    <div className="flex min-w-0 flex-col">
+                                                        <Link
+                                                            href={requestShow.url(
+                                                                r.id,
+                                                            )}
+                                                            className="focus-ring rounded-xs font-medium text-ink hover:underline"
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            }
+                                                        >
+                                                            {r.type_label}
+                                                        </Link>
+                                                        <span className="text-xs text-ink-secondary">
+                                                            {r.agency}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="max-w-64 py-3">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="line-clamp-1">
+                                                        {r.case?.title ?? "—"}
+                                                    </span>
+                                                    {r.case
+                                                        ?.court_case_number && (
+                                                        <RegistryChip
+                                                            value={
+                                                                r.case
+                                                                    .court_case_number
+                                                            }
+                                                            kind="case"
+                                                            size="sm"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-3">
+                                                <div className="flex flex-col">
+                                                    <span>
+                                                        {r.subject_name ?? "—"}
+                                                    </span>
+                                                    <MaskedPinfl
+                                                        value={
+                                                            r.subject_pinfl_masked
+                                                        }
+                                                        className="text-xs"
+                                                    />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <StatusBadge
+                                                    status={r.status}
+                                                    label={r.status_label}
+                                                    size="sm"
                                                 />
-                                                {r.type_label}
-                                            </Link>
-                                            <p className="text-xs text-muted-foreground">
-                                                {r.agency}
-                                            </p>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <p className="line-clamp-1">
+                                            </TableCell>
+                                            <TableCell>
+                                                <DeadlineChip
+                                                    dueAt={r.due_at ?? null}
+                                                    status={r.status}
+                                                    answeredOnTime={
+                                                        r.answered_on_time
+                                                    }
+                                                    compact
+                                                />
+                                                {!showsDeadline(r) && (
+                                                    <span className="text-ink-muted">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right text-ink-secondary tabular-nums">
+                                                {formatDate(
+                                                    r.submitted_at ??
+                                                        r.created_at,
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* Mobile: stacked rows */}
+                        <ul className="divide-y overflow-hidden rounded-lg border bg-card md:hidden">
+                            {requests.data.map((r) => (
+                                <li key={r.id}>
+                                    <Link
+                                        href={requestShow.url(r.id)}
+                                        className="flex items-start gap-3 px-4 py-4 transition-colors hover:bg-page"
+                                    >
+                                        <RequestTypeIcon
+                                            type={r.type}
+                                            className="mt-0.5 size-[18px] shrink-0 text-ink-secondary"
+                                        />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="font-medium text-ink">
+                                                    {r.type_label}
+                                                </span>
+                                                <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                                                    {formatDate(
+                                                        r.submitted_at ??
+                                                            r.created_at,
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <span className="truncate text-sm text-ink-secondary">
                                                 {r.case?.title ?? "—"}
-                                            </p>
-                                            {r.case?.court_case_number && (
-                                                <p className="font-mono text-xs text-muted-foreground">
-                                                    {r.case.court_case_number}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <p>{r.subject_name ?? "—"}</p>
-                                            <MaskedPinfl
-                                                value={r.subject_pinfl_masked}
-                                                className="text-xs"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-3 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                                            {formatDateTime(
-                                                r.submitted_at ?? r.created_at,
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge
-                                                status={r.status}
-                                                label={r.status_label}
-                                            />
-                                        </td>
-                                        <td className="pr-3">
-                                            <ChevronRight
-                                                className="size-4 text-muted-foreground"
-                                                aria-hidden
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </span>
+                                            <span className="flex flex-wrap items-center gap-x-2 text-xs text-ink-secondary">
+                                                {r.subject_name}
+                                                <MaskedPinfl
+                                                    value={
+                                                        r.subject_pinfl_masked
+                                                    }
+                                                />
+                                            </span>
+                                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                <StatusBadge
+                                                    status={r.status}
+                                                    label={r.status_label}
+                                                    size="sm"
+                                                />
+                                                <DeadlineChip
+                                                    dueAt={r.due_at ?? null}
+                                                    status={r.status}
+                                                    answeredOnTime={
+                                                        r.answered_on_time
+                                                    }
+                                                    compact
+                                                />
+                                            </div>
+                                        </div>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
                 )}
 
                 {requests.last_page > 1 && (
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>
-                            Jami {requests.total} ta · {requests.current_page}/
-                            {requests.last_page}-sahifa
+                    <div className="flex items-center justify-between gap-4 text-sm text-ink-secondary">
+                        <span className="tabular-nums">
+                            {requests.current_page}-sahifa,{" "}
+                            {requests.last_page} tadan
                         </span>
                         <div className="flex gap-2">
                             <Button

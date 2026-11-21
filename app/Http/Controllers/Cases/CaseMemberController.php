@@ -43,7 +43,7 @@ class CaseMemberController extends Controller
             'member_name' => $member->user->name,
         ], $legalCase->id);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => "Yurist ishga qo'shildi."]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Yurist ishga qo'shildi"]);
 
         return back();
     }
@@ -68,7 +68,7 @@ class CaseMemberController extends Controller
             'to' => $member->can_view_responses,
         ], $legalCase->id);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => $member->can_view_responses ? 'Javoblarni ko\'rish ruxsati berildi.' : 'Javoblarni ko\'rish ruxsati olib tashlandi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $member->can_view_responses ? 'Javoblarni ko\'rish ruxsati berildi' : 'Javoblarni ko\'rish ruxsati olib tashlandi']);
 
         return back();
     }
@@ -87,7 +87,7 @@ class CaseMemberController extends Controller
 
         $member->delete();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Yurist ishdan chiqarildi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Yurist ishdan chiqarildi']);
 
         return back();
     }

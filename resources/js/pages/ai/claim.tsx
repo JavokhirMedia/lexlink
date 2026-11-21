@@ -1,41 +1,30 @@
 import { Head, Link, useForm } from "@inertiajs/react";
-import {
-    ArrowLeft,
-    Check,
-    Copy,
-    FileText,
-    Pencil,
-    Printer,
-    RefreshCw,
-} from "lucide-react";
+import { Check, Copy, Eye, FileText, Pencil, Printer } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { AiDisclaimer } from "@/components/ai/ai-disclaimer";
 import { AiSentPayload } from "@/components/ai/ai-sent-payload";
 import { AlimonyTable } from "@/components/ai/alimony-table";
 import { CitationChips } from "@/components/ai/citation-chips";
 import { formatSum, modelLabel } from "@/components/ai/format";
 import { AiMarkdown } from "@/components/ai/markdown";
-import { Badge } from "@/components/ui/badge";
+import { formatDate, formatDateTime } from "@/components/brand/money";
+import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { store } from "@/routes/ai/claim";
 import { index as casesIndex, show as casesShow } from "@/routes/cases";
+import { show as requestShow } from "@/routes/requests";
 import type {
     AiAnalysis,
     AlimonyCalculation,
     DataRequestType,
 } from "@/types/lexlink";
-import { formatDateTime } from "@/components/brand/money";
 
 type Props = {
     case: {
@@ -58,6 +47,28 @@ type Props = {
     draft: AiAnalysis | null;
     price: number;
 };
+
+function Panel({
+    title,
+    description,
+    children,
+}: {
+    title: string;
+    description?: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <section className="flex flex-col gap-4 rounded-lg border bg-card p-6 shadow-xs">
+            <div className="flex flex-col gap-1">
+                <h2 className="text-base font-medium text-ink">{title}</h2>
+                {description && (
+                    <p className="text-sm text-ink-secondary">{description}</p>
+                )}
+            </div>
+            {children}
+        </section>
+    );
+}
 
 export default function ClaimPage({
     case: legalCase,
@@ -115,294 +126,288 @@ export default function ClaimPage({
     return (
         <>
             <Head title="Da'vo arizasi loyihasi" />
-            <div className="flex w-full flex-1 flex-col gap-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="space-y-1">
-                        <Link
-                            href={casesShow.url(legalCase.id)}
-                            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-                        >
-                            <ArrowLeft className="size-4" aria-hidden />{" "}
-                            {legalCase.title}
-                        </Link>
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            Da'vo arizasi loyihasi
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col gap-8">
+                <PageHeader
+                    title="Da'vo arizasi loyihasi"
+                    description={
+                        <>
                             Aliment undirish to'g'risida · mijoz:{" "}
                             {legalCase.client_name}
-                            {legalCase.court_case_number &&
-                                ` · ish № ${legalCase.court_case_number}`}
-                        </p>
-                    </div>
-                </div>
+                        </>
+                    }
+                    meta={
+                        <>
+                            <Link
+                                href={casesShow.url(legalCase.id)}
+                                className="focus-ring rounded-xs text-ink underline decoration-hairline underline-offset-4 transition-colors hover:decoration-ink"
+                            >
+                                Ish: {legalCase.title}
+                            </Link>
+                            {legalCase.court_case_number && (
+                                <RegistryChip
+                                    value={legalCase.court_case_number}
+                                    kind="case"
+                                />
+                            )}
+                        </>
+                    }
+                />
 
-                <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-                    <div className="space-y-6">
-                        <Card className="gap-4">
-                            <CardHeader>
-                                <CardTitle className="text-base">
-                                    Parametrlar
-                                </CardTitle>
-                                <CardDescription>
-                                    AI'ga faqat egasizlantirilgan ma'lumot
-                                    yuboriladi (ShMQ 16-modda); summalar PHP da
-                                    hisoblanadi.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={submit} className="space-y-4">
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="children">
-                                            Voyaga yetmagan bolalar soni
-                                        </Label>
-                                        <Input
-                                            id="children"
-                                            type="number"
-                                            min={1}
-                                            max={15}
-                                            value={form.data.children}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    "children",
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="masalan, 2"
-                                        />
-                                        {children_detected && (
-                                            <p className="text-xs text-muted-foreground">
-                                                Ish tavsifidan aniqlandi:{" "}
-                                                {children_detected}
-                                            </p>
-                                        )}
-                                        {form.errors.children && (
-                                            <p className="text-xs text-destructive">
-                                                {form.errors.children}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="court">Sud nomi</Label>
-                                        <Input
-                                            id="court"
-                                            value={form.data.court}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    "court",
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Yunusobod tumanlararo fuqarolik ishlari bo'yicha sudi"
-                                        />
-                                    </div>
+                <div className="grid gap-8 lg:grid-cols-[400px_minmax(0,1fr)] lg:items-start">
+                    <div className="flex flex-col gap-6">
+                        <Panel
+                            title="Parametrlar"
+                            description="AI'ga faqat egasizlantirilgan ma'lumot yuboriladi (ShMQ 16-modda), summalar PHP'da hisoblanadi"
+                        >
+                            <form
+                                onSubmit={submit}
+                                className="flex flex-col gap-5"
+                            >
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="children">
+                                        Voyaga yetmagan bolalar soni
+                                    </Label>
+                                    <Input
+                                        id="children"
+                                        type="number"
+                                        min={1}
+                                        max={15}
+                                        value={form.data.children}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                "children",
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="masalan, 2"
+                                        aria-invalid={!!form.errors.children}
+                                    />
+                                    {children_detected && (
+                                        <p className="text-meta text-ink-secondary">
+                                            Ish tavsifidan aniqlandi:{" "}
+                                            {children_detected}
+                                        </p>
+                                    )}
+                                    {form.errors.children && (
+                                        <p className="text-meta text-danger">
+                                            {form.errors.children}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <Label htmlFor="court">Sud nomi</Label>
+                                    <Input
+                                        id="court"
+                                        value={form.data.court}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                "court",
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="Yunusobod tumanlararo fuqarolik ishlari bo'yicha sudi"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
                                     <Button
                                         type="submit"
-                                        className="w-full"
                                         disabled={form.processing}
                                     >
                                         {form.processing ? (
-                                            <RefreshCw
-                                                className="size-4 animate-spin"
-                                                aria-hidden
-                                            />
+                                            <Spinner />
                                         ) : (
-                                            <FileText
-                                                className="size-4"
-                                                aria-hidden
-                                            />
+                                            <FileText aria-hidden />
                                         )}
                                         {draft
                                             ? "Qayta yaratish"
                                             : "Loyihani yaratish"}
                                     </Button>
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-meta text-ink-secondary">
                                         Tarif doirasida bepul, limitdan keyin{" "}
-                                        {formatSum(price)}.
-                                    </p>
-                                </form>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="gap-3">
-                            <CardHeader>
-                                <CardTitle className="text-base">
-                                    Ishlatiladigan javoblar
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                {responses.length === 0 && (
-                                    <p className="text-sm text-muted-foreground">
-                                        Hali javob olingan so'rov yo'q. Loyiha
-                                        bo'sh joylar bilan tuziladi.
-                                    </p>
-                                )}
-                                {responses.map((r) => (
-                                    <div
-                                        key={r.id}
-                                        className="flex items-center justify-between gap-2 text-sm"
-                                    >
-                                        <span>
-                                            {r.type_label}
-                                            <span className="block text-xs text-muted-foreground">
-                                                {r.agency}
-                                            </span>
+                                        <span className="tabular-nums">
+                                            {formatSum(price)}
                                         </span>
-                                        <Badge
-                                            variant="outline"
-                                            className="shrink-0"
-                                        >
-                                            № {r.id}
-                                        </Badge>
-                                    </div>
-                                ))}
-                                {!has_salary && responses.length > 0 && (
-                                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                                        Ish haqi javobi yo'q — aliment summasi
-                                        hisoblanmaydi.
                                     </p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
+                                </div>
+                            </form>
+                        </Panel>
 
-                    <div className="space-y-6">
                         {alimony_preview && (
-                            <Card className="gap-4">
-                                <CardHeader>
-                                    <CardTitle className="text-base">
-                                        Aliment hisob-kitobi
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <AlimonyTable calc={alimony_preview} />
-                                </CardContent>
-                            </Card>
+                            <Panel title="Aliment hisob-kitobi">
+                                <AlimonyTable calc={alimony_preview} />
+                            </Panel>
                         )}
 
-                        <Card className="gap-4">
-                            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-base">
-                                        Loyiha matni
-                                    </CardTitle>
-                                    {draft && (
-                                        <p className="text-xs text-muted-foreground">
-                                            {formatDateTime(draft.created_at)}
-                                            {draft.model &&
-                                                ` · ${modelLabel(draft.model)}`}
-                                        </p>
-                                    )}
-                                </div>
+                        <Panel title="Ishlatiladigan javoblar">
+                            {responses.length === 0 ? (
+                                <p className="text-sm text-ink-secondary">
+                                    Hali javob olingan so'rov yo'q. Loyiha bo'sh
+                                    joylar bilan tuziladi.
+                                </p>
+                            ) : (
+                                <ul className="-my-2 flex flex-col divide-y divide-hairline">
+                                    {responses.map((r) => (
+                                        <li key={r.id}>
+                                            <Link
+                                                href={requestShow.url(r.id)}
+                                                className="focus-ring flex items-center justify-between gap-3 rounded-xs py-2.5"
+                                            >
+                                                <span className="flex min-w-0 flex-col">
+                                                    <span className="truncate text-sm font-medium text-ink">
+                                                        {r.type_label}
+                                                    </span>
+                                                    <span className="truncate text-meta text-ink-secondary">
+                                                        {r.agency}
+                                                        {r.completed_at &&
+                                                            ` · ${formatDate(r.completed_at)}`}
+                                                    </span>
+                                                </span>
+                                                <span className="shrink-0 font-mono text-meta text-ink-muted tabular-nums">
+                                                    #{r.id}
+                                                </span>
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {!has_salary && responses.length > 0 && (
+                                <p className="rounded-md bg-warning-soft px-3 py-2 text-meta text-warning">
+                                    Ish haqi javobi yo'q, aliment summasi
+                                    hisoblanmaydi
+                                </p>
+                            )}
+                        </Panel>
+                    </div>
+
+                    <section
+                        aria-labelledby="draft-title"
+                        className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-xs"
+                    >
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
+                            <div className="flex min-w-0 flex-col gap-0.5">
+                                <h2
+                                    id="draft-title"
+                                    className="text-base font-medium text-ink"
+                                >
+                                    Loyiha matni
+                                </h2>
                                 {draft && (
-                                    <div className="flex flex-wrap gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() =>
-                                                setEditing((v) => !v)
-                                            }
-                                        >
-                                            <Pencil
-                                                className="size-4"
-                                                aria-hidden
-                                            />
-                                            {editing
-                                                ? "Ko'rinish"
-                                                : "Tahrirlash"}
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => void copy(text)}
-                                        >
-                                            {copied === text ? (
-                                                <Check
-                                                    className="size-4"
-                                                    aria-hidden
-                                                />
-                                            ) : (
-                                                <Copy
-                                                    className="size-4"
-                                                    aria-hidden
-                                                />
-                                            )}
-                                            Nusxa olish
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={print}
-                                        >
-                                            <Printer
-                                                className="size-4"
-                                                aria-hidden
-                                            />
-                                            Chop etish / PDF
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {!draft && (
-                                    <p className="text-sm text-muted-foreground">
-                                        Loyiha hali yaratilmagan. Parametrlarni
-                                        tekshiring va "Loyihani yaratish"
-                                        tugmasini bosing.
+                                    <p className="text-meta text-ink-secondary tabular-nums">
+                                        {formatDateTime(draft.created_at)}
+                                        {draft.model &&
+                                            ` · ${modelLabel(draft.model)}`}
                                     </p>
                                 )}
-                                {draft && editing && (
-                                    <textarea
+                            </div>
+                            {draft && (
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        aria-pressed={editing}
+                                        onClick={() => setEditing((v) => !v)}
+                                    >
+                                        {editing ? (
+                                            <Eye aria-hidden />
+                                        ) : (
+                                            <Pencil aria-hidden />
+                                        )}
+                                        {editing ? "Ko'rinish" : "Tahrirlash"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => void copy(text)}
+                                    >
+                                        {copied === text ? (
+                                            <Check aria-hidden />
+                                        ) : (
+                                            <Copy aria-hidden />
+                                        )}
+                                        {copied === text
+                                            ? "Nusxa olindi"
+                                            : "Nusxa olish"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={print}
+                                    >
+                                        <Printer aria-hidden />
+                                        Chop etish / PDF
+                                    </Button>
+                                </div>
+                            )}
+                        </header>
+
+                        <div className="bg-page p-4 sm:p-8">
+                            {!draft && (
+                                <div className="mx-auto flex max-w-[68ch] flex-col items-center gap-3 rounded-lg border border-dashed bg-card px-6 py-16 text-center">
+                                    <span className="flex size-10 items-center justify-center rounded-md bg-raised text-ink-muted">
+                                        <FileText
+                                            className="size-[18px]"
+                                            strokeWidth={1.5}
+                                            aria-hidden
+                                        />
+                                    </span>
+                                    <p className="text-base font-medium text-ink">
+                                        Loyiha hali yaratilmagan
+                                    </p>
+                                    <p className="text-sm text-ink-secondary">
+                                        Parametrlarni tekshiring va "Loyihani
+                                        yaratish" tugmasini bosing
+                                    </p>
+                                </div>
+                            )}
+                            {draft && editing && (
+                                <div className="mx-auto flex max-w-[76ch] flex-col gap-2">
+                                    <Textarea
                                         value={text}
                                         onChange={(e) =>
                                             setText(e.target.value)
                                         }
-                                        className="min-h-[560px] w-full rounded-md border bg-background p-3 font-mono text-sm leading-relaxed shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                        className="min-h-[640px] p-6 leading-[26px] sm:p-10"
                                         aria-label="Da'vo arizasi matni"
                                     />
-                                )}
-                                {draft && !editing && (
-                                    <div
-                                        ref={printRef}
-                                        className="rounded-md border bg-background p-5 md:p-8"
-                                    >
-                                        <AiMarkdown citations={draft.citations}>
-                                            {text}
-                                        </AiMarkdown>
-                                    </div>
-                                )}
-                                {draft && editing && (
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-meta text-ink-secondary">
                                         Tahrirlar serverda saqlanmaydi — nusxa
-                                        oling yoki chop eting.
+                                        oling yoki chop eting
                                     </p>
-                                )}
-                                {draft && (
-                                    <CitationChips
-                                        citations={draft.citations}
-                                    />
-                                )}
-                                {draft && (
-                                    <AiSentPayload
-                                        report={draft.anonymization}
-                                        sentPayload={draft.sent_payload}
-                                    />
-                                )}
-                                {draft && (
-                                    <AiDisclaimer text={draft.disclaimer} />
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
+                                </div>
+                            )}
+                            {draft && !editing && (
+                                <div
+                                    ref={printRef}
+                                    className="mx-auto max-w-[76ch] rounded-md border bg-surface px-6 py-8 shadow-xs sm:px-12 sm:py-12"
+                                >
+                                    <AiMarkdown citations={draft.citations}>
+                                        {text}
+                                    </AiMarkdown>
+                                </div>
+                            )}
+                        </div>
+
+                        {draft && (
+                            <footer className="flex flex-col gap-5 border-t px-6 py-5">
+                                <CitationChips citations={draft.citations} />
+                                <AiSentPayload
+                                    report={draft.anonymization}
+                                    sentPayload={draft.sent_payload}
+                                />
+                                <AiDisclaimer text={draft.disclaimer} />
+                            </footer>
+                        )}
+                    </section>
                 </div>
             </div>
         </>
     );
 }
 
-ClaimPage.layout = {
+ClaimPage.layout = (props: Props) => ({
     breadcrumbs: [
         { title: "Ishlar", href: casesIndex() },
+        { title: props.case.title, href: casesShow(props.case.id) },
         { title: "Da'vo arizasi", href: "#" },
     ],
-};
+});

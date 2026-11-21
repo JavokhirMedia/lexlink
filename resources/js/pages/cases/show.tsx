@@ -1,8 +1,8 @@
 import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
-    AlertTriangle,
-    CheckCircle2,
+    Check,
     Copy,
+    FilePlus2,
     FileText,
     Gavel,
     History,
@@ -13,14 +13,20 @@ import {
     ShieldCheck,
     Trash2,
     UserPlus,
-    XCircle,
 } from "lucide-react";
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { EmptyState } from "@/components/brand/empty-state";
+import { MaskedPinfl } from "@/components/brand/masked-pinfl";
+import { formatDate } from "@/components/brand/money";
+import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
+import { Section } from "@/components/brand/section";
 import InputError from "@/components/input-error";
+import { BasisSeal } from "@/components/requests/basis-check-panel";
+import type { SealState } from "@/components/requests/basis-check-panel";
 import { CaseRequestsPanel } from "@/components/requests/case-requests-panel";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { RequestTypeIcon } from "@/components/requests/request-type-icon";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,6 +38,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { index as casesIndex, show as casesShow } from "@/routes/cases";
 import advocateOrdersRoutes from "@/routes/cases/advocate-orders";
@@ -39,6 +56,7 @@ import basesRoutes from "@/routes/cases/bases";
 import clientLinksRoutes from "@/routes/cases/client-links";
 import membersRoutes from "@/routes/cases/members";
 import secrecyDeclaration from "@/routes/cases/secrecy-declaration";
+import { create as requestCreate } from "@/routes/requests";
 import type {
     DataRequest,
     DataRequestType,
@@ -46,7 +64,6 @@ import type {
     LegalBasisType,
     LegalCase,
 } from "@/types/lexlink";
-import { formatDate } from "@/components/brand/money";
 
 type CaseDetail = LegalCase & {
     category_label: string | null;
@@ -162,38 +179,24 @@ type Props = {
     client_links: ClientLink[];
 };
 
-type Tab = "bases" | "requests" | "team";
+type Tab = "bases" | "requests" | "team" | "client";
 
 const fmtDate = (v: string | null) => formatDate(v);
 
-const STATUS_META: Record<
+/** Seal state + label for each verification status of a basis. */
+const BASIS_STATE: Record<
     LegalBasis["verification_status"],
-    { label: string; className: string }
+    { seal: SealState; label: string; tone: string }
 > = {
-    verified: {
-        label: "Tasdiqlangan",
-        className:
-            "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-300",
-    },
-    pending: {
-        label: "Tekshirilmoqda",
-        className: "bg-muted text-muted-foreground",
-    },
+    verified: { seal: "verified", label: "Tasdiqlangan", tone: "text-success" },
+    pending: { seal: "pending", label: "Tekshirilmoqda", tone: "text-warning" },
     not_found: {
-        label: "Topilmadi",
-        className:
-            "bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-300",
+        seal: "blocked",
+        label: "Reyestrda topilmadi",
+        tone: "text-danger",
     },
-    expired: {
-        label: "Muddati tugagan",
-        className:
-            "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300",
-    },
-    mismatch: {
-        label: "Mos emas",
-        className:
-            "bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-300",
-    },
+    expired: { seal: "blocked", label: "Muddati tugagan", tone: "text-danger" },
+    mismatch: { seal: "blocked", label: "Mos emas", tone: "text-danger" },
 };
 
 export default function CaseShow(props: Props) {
@@ -204,16 +207,12 @@ export default function CaseShow(props: Props) {
         membership,
         can,
         members,
+        client_links,
     } = props;
     const [tab, setTab] = useState<Tab>(
         bases.length === 0 && can.add_basis ? "bases" : "requests",
     );
-
-    const tabs: { key: Tab; label: string; count: number }[] = [
-        { key: "bases", label: "Huquqiy asoslar", count: bases.length },
-        { key: "requests", label: "So'rovlar", count: requests.length },
-        { key: "team", label: "Jamoa", count: members.length },
-    ];
+    const activeLinks = client_links.filter((l) => !l.revoked_at).length;
 
     return (
         <>
@@ -221,8 +220,8 @@ export default function CaseShow(props: Props) {
             <div className="flex w-full flex-col gap-8">
                 <CaseHeader
                     legalCase={legalCase}
-                    members={members}
                     canViewResponses={can.view_responses}
+                    canCreateRequest={can.create_request}
                 />
 
                 {membership.role === "lawyer" &&
@@ -230,43 +229,51 @@ export default function CaseShow(props: Props) {
                         <SecrecyDeclaration caseId={legalCase.id} />
                     )}
 
-                <div
-                    className="border-b"
-                    role="tablist"
-                    aria-label="Ish bo'limlari"
+                <Tabs
+                    value={tab}
+                    onValueChange={(v) => setTab(v as Tab)}
+                    className="gap-8"
                 >
-                    <div className="-mb-px flex gap-6 overflow-x-auto">
-                        {tabs.map((t) => (
-                            <button
-                                key={t.key}
-                                type="button"
-                                role="tab"
-                                aria-selected={tab === t.key}
-                                onClick={() => setTab(t.key)}
-                                className={cn(
-                                    "flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium whitespace-nowrap transition-colors",
-                                    tab === t.key
-                                        ? "border-primary text-foreground"
-                                        : "border-transparent text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                {t.label}
-                                <span className="rounded bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
-                                    {t.count}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                    <TabsList aria-label="Ish bo'limlari">
+                        <TabsTrigger value="bases" count={bases.length}>
+                            Huquqiy asoslar
+                        </TabsTrigger>
+                        <TabsTrigger value="requests" count={requests.length}>
+                            So'rovlar
+                        </TabsTrigger>
+                        <TabsTrigger value="team" count={members.length}>
+                            Jamoa
+                        </TabsTrigger>
+                        {can.add_basis && (
+                            <TabsTrigger value="client" count={activeLinks}>
+                                Mijoz kirishi
+                            </TabsTrigger>
+                        )}
+                    </TabsList>
 
-                {tab === "bases" && <BasesSection {...props} />}
-                {tab === "requests" && (
-                    <CaseRequestsPanel
-                        caseId={legalCase.id}
-                        requests={requests}
-                    />
-                )}
-                {tab === "team" && <TeamSection {...props} />}
+                    <TabsContent value="bases">
+                        <BasesSection {...props} />
+                    </TabsContent>
+                    <TabsContent value="requests">
+                        <CaseRequestsPanel
+                            caseId={legalCase.id}
+                            requests={requests}
+                            canCreate={can.create_request}
+                        />
+                    </TabsContent>
+                    <TabsContent value="team">
+                        <TeamSection {...props} />
+                    </TabsContent>
+                    {can.add_basis && (
+                        <TabsContent value="client">
+                            <ClientAccessSection
+                                caseId={legalCase.id}
+                                bases={bases}
+                                links={client_links}
+                            />
+                        </TabsContent>
+                    )}
+                </Tabs>
             </div>
         </>
     );
@@ -281,102 +288,100 @@ CaseShow.layout = (props: Props) => ({
 
 function CaseHeader({
     legalCase,
-    members,
     canViewResponses,
+    canCreateRequest,
 }: {
     legalCase: CaseDetail;
-    members: Member[];
     canViewResponses: boolean;
+    canCreateRequest: boolean;
 }) {
+    const closed = legalCase.status === "closed";
+
     return (
-        <div className="flex flex-col gap-4 rounded-lg border bg-card p-5 md:flex-row md:items-start md:justify-between">
-            <div className="min-w-0 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        {legalCase.title}
-                    </h1>
-                    <Badge
-                        variant={
-                            legalCase.status === "closed"
-                                ? "secondary"
-                                : "outline"
-                        }
-                    >
-                        {legalCase.status === "closed" ? "Yopilgan" : "Faol"}
-                    </Badge>
-                </div>
-                <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <dt className="text-muted-foreground">Mijoz</dt>
-                        <dd className="font-medium">{legalCase.client_name}</dd>
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">
-                            Sud ishi raqami
-                        </dt>
-                        <dd className="font-mono">
-                            {legalCase.court_case_number ?? "—"}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">Toifa</dt>
-                        <dd>{legalCase.category_label ?? "—"}</dd>
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">Jamoa</dt>
-                        <dd>
-                            {members.map((m) => (
-                                <span key={m.id} className="mr-2 inline-block">
-                                    {m.user.name}
-                                    <span className="text-muted-foreground">
-                                        {" "}
-                                        (
-                                        {m.role === "advocate"
-                                            ? "advokat"
-                                            : "yurist"}
-                                        )
-                                    </span>
+        <PageHeader
+            title={legalCase.title}
+            description={legalCase.description ?? undefined}
+            meta={
+                <>
+                    <span className="inline-flex items-center gap-1.5 text-ink">
+                        <span
+                            className={cn(
+                                "size-1.5 rounded-full",
+                                closed ? "bg-ink-muted" : "bg-success",
+                            )}
+                            aria-hidden
+                        />
+                        {closed ? "Yopilgan" : "Faol"}
+                    </span>
+                    <MetaDivider />
+                    <span>
+                        Mijoz{" "}
+                        <span className="text-ink">
+                            {legalCase.client_name}
+                        </span>
+                    </span>
+                    {legalCase.court_case_number && (
+                        <>
+                            <MetaDivider />
+                            <RegistryChip
+                                value={legalCase.court_case_number}
+                                kind="case"
+                                copyable
+                            />
+                        </>
+                    )}
+                    {legalCase.category_label && (
+                        <>
+                            <MetaDivider />
+                            <span>{legalCase.category_label}</span>
+                        </>
+                    )}
+                    {legalCase.parties.length > 0 && (
+                        <span className="flex basis-full flex-wrap gap-x-4 gap-y-1 pt-1">
+                            {legalCase.parties.map((p, i) => (
+                                <span key={i}>
+                                    {p.role}{" "}
+                                    <span className="text-ink">{p.name}</span>
                                 </span>
                             ))}
-                        </dd>
-                    </div>
-                </dl>
-                {legalCase.parties.length > 0 && (
-                    <div className="flex flex-wrap gap-2 text-sm">
-                        {legalCase.parties.map((p, i) => (
-                            <span
-                                key={i}
-                                className="rounded border px-2 py-0.5"
-                            >
-                                <span className="text-muted-foreground">
-                                    {p.role}:
-                                </span>{" "}
-                                {p.name}
-                            </span>
-                        ))}
-                    </div>
-                )}
-                {legalCase.description && (
-                    <p className="max-w-3xl text-sm whitespace-pre-line text-muted-foreground">
-                        {legalCase.description}
-                    </p>
-                )}
-            </div>
-            <div className="flex shrink-0 gap-2">
-                {canViewResponses && (
-                    <Button asChild variant="outline" size="sm">
-                        <a href={`/cases/${legalCase.id}/claim`}>
-                            <FileText /> Da'vo arizasi (AI)
+                        </span>
+                    )}
+                </>
+            }
+            actions={
+                <>
+                    {canViewResponses && (
+                        <Button asChild variant="outline">
+                            <a href={`/cases/${legalCase.id}/claim`}>
+                                <FileText /> Da'vo arizasi (AI)
+                            </a>
+                        </Button>
+                    )}
+                    <Button asChild variant="outline">
+                        <a href={`/audit?case_id=${legalCase.id}`}>
+                            <History /> Audit jurnali
                         </a>
                     </Button>
-                )}
-                <Button asChild variant="outline" size="sm">
-                    <a href={`/audit?case_id=${legalCase.id}`}>
-                        <History /> Audit jurnali
-                    </a>
-                </Button>
-            </div>
-        </div>
+                    {canCreateRequest && (
+                        <Button asChild>
+                            <Link
+                                href={requestCreate.url({
+                                    query: { case: legalCase.id },
+                                })}
+                            >
+                                <FilePlus2 /> Yangi so'rov
+                            </Link>
+                        </Button>
+                    )}
+                </>
+            }
+        />
+    );
+}
+
+function MetaDivider() {
+    return (
+        <span aria-hidden className="h-4 w-px bg-hairline" />
     );
 }
 
@@ -394,17 +399,29 @@ function SecrecyDeclaration({ caseId }: { caseId: number }) {
     };
 
     return (
-        <Alert>
-            <ShieldCheck />
-            <AlertTitle>Advokat sirini saqlash majburiyati</AlertTitle>
-            <AlertDescription>
-                <p>
-                    Ushbu ish bo'yicha idoralardan olingan javoblarni ko'rish
-                    uchun advokat sirini saqlash majburiyatini qabul qilishingiz
-                    kerak. Javoblarni ko'rish ruxsatini advokat alohida beradi.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm text-foreground">
+        <section
+            role="alert"
+            className="flex flex-col gap-4 rounded-xl border border-warning-border bg-warning-soft p-5 sm:flex-row sm:items-start"
+        >
+            <ShieldCheck
+                className="size-5 shrink-0 text-warning"
+                strokeWidth={1.5}
+                aria-hidden
+            />
+            <div className="flex flex-1 flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-base font-medium text-ink">
+                        Advokat sirini saqlash majburiyati
+                    </h2>
+                    <p className="text-sm text-ink-secondary">
+                        Ushbu ish bo'yicha idoralardan olingan javoblarni
+                        ko'rish uchun advokat sirini saqlash majburiyatini
+                        qabul qilishingiz kerak. Javoblarni ko'rish ruxsatini
+                        advokat alohida beradi.
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                    <label className="flex items-center gap-3 text-sm text-ink">
                         <Checkbox
                             checked={checked}
                             onCheckedChange={(v) => setChecked(v === true)}
@@ -419,8 +436,8 @@ function SecrecyDeclaration({ caseId }: { caseId: number }) {
                         Qabul qilish
                     </Button>
                 </div>
-            </AlertDescription>
-        </Alert>
+            </div>
+        </section>
     );
 }
 
@@ -433,32 +450,29 @@ function BasesSection({
     coverage,
     request_types,
     order_matrix,
-    client_links,
 }: Props) {
     const [adding, setAdding] = useState(false);
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="font-medium">Huquqiy asoslar</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Asossiz so'rov yuborilmaydi: har bir so'rov
-                            tasdiqlangan, amaldagi asos bilan qoplanishi shart.
-                        </p>
-                    </div>
-                    {can.add_basis && !adding && (
-                        <Button size="sm" onClick={() => setAdding(true)}>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <Section
+                title="Huquqiy asoslar"
+                description="Asossiz so'rov yuborilmaydi: har bir so'rov tasdiqlangan, amaldagi asos bilan qoplanishi shart"
+                actions={
+                    can.add_basis &&
+                    !adding &&
+                    bases.length > 0 && (
+                        <Button variant="outline" onClick={() => setAdding(true)}>
                             <Plus /> Asos qo'shish
                         </Button>
-                    )}
-                </div>
-
+                    )
+                }
+                contentClassName="flex flex-col gap-6"
+            >
                 {!can.add_basis && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-ink-secondary">
                         Huquqiy asosni faqat faol litsenziyaga ega advokat
-                        qo'shadi.
+                        qo'shadi
                     </p>
                 )}
 
@@ -472,16 +486,18 @@ function BasesSection({
                 )}
 
                 {bases.length === 0 && !adding ? (
-                    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-12 text-center">
-                        <Gavel className="size-7 text-muted-foreground" />
-                        <p className="font-medium">Huquqiy asos yo'q</p>
-                        <p className="max-w-md text-sm text-muted-foreground">
-                            Advokat orderi raqamini kiriting — ko'chmas mulk,
-                            avtotransport, sud ishi, soliq (ochiq qism) va
-                            ulushlar uchun yetarli. Ish haqi, bank siri va
-                            chegaradan o'tish uchun sud qarori (ajrimi) kerak.
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={Gavel}
+                        title="Huquqiy asos hali qo'shilmagan"
+                        description="Advokat orderi ko'chmas mulk, avtotransport, sud ishi, soliq (ochiq qism) va ulushlar uchun yetarli. Ish haqi, bank siri va chegaradan o'tish uchun sud qarori kerak"
+                        action={
+                            can.add_basis ? (
+                                <Button onClick={() => setAdding(true)}>
+                                    <Plus /> Asos qo'shish
+                                </Button>
+                            ) : undefined
+                        }
+                    />
                 ) : (
                     bases.map((b) => (
                         <BasisCard
@@ -493,21 +509,18 @@ function BasesSection({
                         />
                     ))
                 )}
-
-                {can.add_basis && (
-                    <ClientAccessSection
-                        caseId={legalCase.id}
-                        bases={bases}
-                        links={client_links}
-                    />
-                )}
-            </div>
+            </Section>
 
             <CoveragePanel coverage={coverage} requestTypes={request_types} />
         </div>
     );
 }
 
+/**
+ * A legal basis as an official document: type and registry number on top,
+ * a seal with the verification verdict on the right, the facts in a grid,
+ * then what it covers and what it does not.
+ */
 function BasisCard({
     caseId,
     basis,
@@ -520,11 +533,11 @@ function BasisCard({
     courtOnly: OrderTypeInfo[];
 }) {
     const [verifying, setVerifying] = useState(false);
-    const status = STATUS_META[basis.verification_status];
-    const Icon = basis.type === "court_decision" ? Gavel : ScrollText;
-    const notCovered = basis.not_covered_types.map((t) =>
-        t.label.toLowerCase(),
-    );
+    const isCourt = basis.type === "court_decision";
+    const state = basis.is_expired
+        ? BASIS_STATE.expired
+        : BASIS_STATE[basis.verification_status];
+    const verified = basis.verification_status === "verified" && !basis.is_expired;
 
     const reverify = () => {
         setVerifying(true);
@@ -539,28 +552,210 @@ function BasisCard({
     };
 
     return (
-        <article className="rounded-lg border bg-card">
-            <header className="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
-                <div className="flex items-start gap-3">
-                    <Icon className="mt-0.5 size-5 text-muted-foreground" />
-                    <div>
-                        <div className="text-xs text-muted-foreground">
-                            {basis.type_label}
-                        </div>
-                        <div className="font-mono font-medium">
-                            {basis.number}
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span
-                        className={cn(
-                            "rounded px-2 py-0.5 text-xs font-medium",
-                            status.className,
+        <article
+            data-basis={basis.verification_status}
+            className="overflow-hidden rounded-xl border bg-card shadow-xs"
+        >
+            <header className="flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-6">
+                <div className="flex min-w-0 flex-col gap-2">
+                    <span className="flex items-center gap-2 text-sm text-ink-secondary">
+                        {isCourt ? (
+                            <Gavel
+                                className="size-4 shrink-0"
+                                strokeWidth={1.5}
+                                aria-hidden
+                            />
+                        ) : (
+                            <ScrollText
+                                className="size-4 shrink-0"
+                                strokeWidth={1.5}
+                                aria-hidden
+                            />
                         )}
-                    >
-                        {status.label}
+                        {basis.type_label}
                     </span>
+                    <RegistryChip
+                        value={basis.number}
+                        kind={isCourt ? "decision" : "order"}
+                        copyable
+                        className="h-8 px-2.5 text-base"
+                    />
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                    <div className="hidden flex-col items-end text-right sm:flex">
+                        <span
+                            className={cn(
+                                "text-sm font-medium",
+                                state.tone,
+                            )}
+                        >
+                            {state.label}
+                        </span>
+                        {verified && basis.verified_at && (
+                            <span className="text-xs text-ink-muted tabular-nums">
+                                {fmtDate(basis.verified_at)}
+                            </span>
+                        )}
+                    </div>
+                    <BasisSeal state={state.seal} className="size-14" />
+                </div>
+            </header>
+
+            <div className="flex flex-col gap-6 px-5 py-5 sm:px-6">
+                <span
+                    className={cn(
+                        "-mt-1 text-sm font-medium sm:hidden",
+                        state.tone,
+                    )}
+                >
+                    {state.label}
+                </span>
+
+                {basis.verification_error && !verified && (
+                    <p className="rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger">
+                        {basis.verification_error}
+                    </p>
+                )}
+
+                <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+                    <Fact label={isCourt ? "Sud" : "Bergan advokat"}>
+                        {isCourt
+                            ? (basis.court_name ?? "—")
+                            : (basis.order?.advocate_name ??
+                              basis.created_by?.name ??
+                              "—")}
+                    </Fact>
+                    <Fact label="Subyekt">
+                        <span className="flex flex-col gap-1">
+                            <span>{basis.subject_name ?? "—"}</span>
+                            {basis.subject_pinfl_masked && (
+                                <RegistryChip
+                                    value={basis.subject_pinfl_masked}
+                                    kind="pinfl"
+                                    size="sm"
+                                />
+                            )}
+                        </span>
+                    </Fact>
+                    <Fact label="Amal qilish muddati">
+                        <span
+                            className={cn(
+                                "tabular-nums",
+                                basis.is_expired && "text-danger",
+                            )}
+                        >
+                            {fmtDate(basis.issued_at)} —{" "}
+                            {fmtDate(basis.expires_at)}
+                        </span>
+                    </Fact>
+
+                    {!isCourt && basis.order && (
+                        <>
+                            <Fact label="Ishonch bildiruvchi (mijoz)">
+                                <span className="flex flex-col gap-1">
+                                    <span>
+                                        {basis.order.client_name ?? "—"}
+                                    </span>
+                                    {basis.order.client_pinfl_masked && (
+                                        <RegistryChip
+                                            value={
+                                                basis.order.client_pinfl_masked
+                                            }
+                                            kind="pinfl"
+                                            size="sm"
+                                        />
+                                    )}
+                                </span>
+                            </Fact>
+                            <Fact label="Order bo'yicha ish mazmuni">
+                                {basis.order.matter ?? "—"}
+                            </Fact>
+                            {basis.order.license_number && (
+                                <Fact label="Litsenziya">
+                                    <RegistryChip
+                                        value={basis.order.license_number}
+                                        kind="license"
+                                        size="sm"
+                                    />
+                                </Fact>
+                            )}
+                        </>
+                    )}
+                    {!isCourt && basis.purpose && (
+                        <Fact label="So'rov maqsadi" className="sm:col-span-3">
+                            {basis.purpose}
+                        </Fact>
+                    )}
+                </dl>
+
+                <div className="grid gap-6 border-t pt-5 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                        <h4 className="text-xs font-medium text-ink-secondary">
+                            Qamraydi
+                        </h4>
+                        {basis.allowed_types.length === 0 ? (
+                            <p className="text-sm text-ink-muted">
+                                Hech qaysi tur qamrab olinmagan
+                            </p>
+                        ) : (
+                            <ul className="flex flex-col gap-1.5">
+                                {basis.allowed_type_labels.map((label) => (
+                                    <li
+                                        key={label}
+                                        className="flex items-center gap-2 text-sm text-ink"
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "size-4 shrink-0",
+                                                verified
+                                                    ? "text-success"
+                                                    : "text-ink-muted",
+                                            )}
+                                            strokeWidth={2}
+                                            aria-hidden
+                                        />
+                                        {label}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                    {basis.not_covered_types.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                            <h4 className="text-xs font-medium text-ink-secondary">
+                                Qamramaydi
+                            </h4>
+                            <ul className="flex flex-col gap-1.5">
+                                {basis.not_covered_types.map((t) => (
+                                    <li
+                                        key={t.value}
+                                        className="flex items-center gap-2 text-sm text-ink-muted"
+                                    >
+                                        <span
+                                            className="flex size-4 shrink-0 items-center justify-center"
+                                            aria-hidden
+                                        >
+                                            <span className="h-px w-2.5 bg-current" />
+                                        </span>
+                                        {t.label}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+                {!isCourt && courtOnly.length > 0 && (
+                    <p className="-mt-2 text-xs text-ink-muted">
+                        Advokat orderi{" "}
+                        {courtOnly.map((t) => t.label.toLowerCase()).join(", ")}{" "}
+                        ma'lumotini ochmaydi, buning uchun sud qarori yoki
+                        ajrimi kerak
+                    </p>
+                )}
+            </div>
+
+            {(basis.has_file || canVerify) && (
+                <footer className="flex flex-wrap items-center justify-end gap-2 border-t bg-page px-5 py-3 sm:px-6">
                     {basis.has_file && (
                         <Button asChild variant="ghost" size="sm">
                             <a
@@ -571,7 +766,7 @@ function BasisCard({
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                <FileText /> PDF
+                                <FileText /> PDF nusxa
                             </a>
                         </Button>
                     )}
@@ -582,146 +777,30 @@ function BasisCard({
                             onClick={reverify}
                             disabled={verifying}
                         >
-                            <RefreshCw
-                                className={cn(verifying && "animate-spin")}
-                            />{" "}
+                            {verifying ? <Spinner /> : <RefreshCw />}
                             Qayta tekshirish
                         </Button>
                     )}
-                </div>
-            </header>
-
-            <div className="space-y-4 px-5 py-4">
-                {basis.verification_error &&
-                    basis.verification_status !== "verified" && (
-                        <p className="flex items-center gap-2 text-sm text-destructive">
-                            <XCircle className="size-4" />{" "}
-                            {basis.verification_error}
-                        </p>
-                    )}
-
-                <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-                    <div>
-                        <dt className="text-muted-foreground">
-                            {basis.type === "court_decision"
-                                ? "Sud"
-                                : "Bergan advokat"}
-                        </dt>
-                        <dd>
-                            {basis.type === "court_decision"
-                                ? (basis.court_name ?? "—")
-                                : (basis.created_by?.name ?? "—")}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">Subyekt</dt>
-                        <dd>
-                            {basis.subject_name ?? "—"}
-                            {basis.subject_pinfl_masked && (
-                                <div className="font-mono text-xs text-muted-foreground">
-                                    JShShIR {basis.subject_pinfl_masked}
-                                </div>
-                            )}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">
-                            Amal qilish muddati
-                        </dt>
-                        <dd
-                            className={cn(
-                                basis.is_expired && "text-destructive",
-                            )}
-                        >
-                            {fmtDate(basis.issued_at)} —{" "}
-                            {fmtDate(basis.expires_at)}
-                        </dd>
-                    </div>
-                </dl>
-
-                {basis.type === "advocate_order" &&
-                    (basis.order || basis.purpose) && (
-                        <dl className="grid gap-x-6 gap-y-3 rounded-md bg-muted/40 px-3 py-2 text-sm sm:grid-cols-3">
-                            {basis.order && (
-                                <>
-                                    <div>
-                                        <dt className="text-muted-foreground">
-                                            Ishonch bildiruvchi (mijoz)
-                                        </dt>
-                                        <dd>
-                                            {basis.order.client_name ?? "—"}
-                                            {basis.order
-                                                .client_pinfl_masked && (
-                                                <div className="font-mono text-xs text-muted-foreground">
-                                                    JShShIR{" "}
-                                                    {
-                                                        basis.order
-                                                            .client_pinfl_masked
-                                                    }
-                                                </div>
-                                            )}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt className="text-muted-foreground">
-                                            Order bo'yicha ish mazmuni
-                                        </dt>
-                                        <dd>{basis.order.matter ?? "—"}</dd>
-                                    </div>
-                                </>
-                            )}
-                            {basis.purpose && (
-                                <div>
-                                    <dt className="text-muted-foreground">
-                                        So'rov maqsadi
-                                    </dt>
-                                    <dd>{basis.purpose}</dd>
-                                </div>
-                            )}
-                        </dl>
-                    )}
-
-                <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">
-                        Qamraydigan ma'lumot turlari
-                    </div>
-                    {basis.allowed_types.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            Hech qaysi tur qamrab olinmagan.
-                        </p>
-                    ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                            {basis.allowed_type_labels.map((l) => (
-                                <span
-                                    key={l}
-                                    className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs font-medium text-primary"
-                                >
-                                    <CheckCircle2 className="size-3" /> {l}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                    {basis.verification_status === "verified" &&
-                        notCovered.length > 0 && (
-                            <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                                Bu asos {notCovered.join(", ")} ma'lumotini
-                                qamramaydi.
-                            </p>
-                        )}
-                    {basis.type === "advocate_order" && (
-                        <p className="text-xs text-muted-foreground">
-                            Advokat orderi{" "}
-                            {courtOnly
-                                .map((t) => t.label.toLowerCase())
-                                .join(", ")}{" "}
-                            ma'lumotini ochmaydi — buning uchun sud qarori yoki
-                            ajrimi kerak.
-                        </p>
-                    )}
-                </div>
-            </div>
+                </footer>
+            )}
         </article>
+    );
+}
+
+function Fact({
+    label,
+    className,
+    children,
+}: {
+    label: string;
+    className?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+            <dt className="text-xs text-ink-secondary">{label}</dt>
+            <dd className="text-ink">{children}</dd>
+        </div>
     );
 }
 
@@ -782,63 +861,46 @@ function AddBasisForm({
     return (
         <form
             onSubmit={submit}
-            className="space-y-4 rounded-lg border border-primary/30 bg-card p-5"
+            className="flex flex-col gap-6 rounded-xl border bg-card p-5 shadow-xs sm:p-6"
+            aria-label="Yangi huquqiy asos"
         >
-            <div
-                className="flex gap-1 rounded-md border p-1"
-                role="radiogroup"
-                aria-label="Asos turi"
-            >
-                {(
-                    [
-                        {
-                            value: "advocate_order",
-                            label: "Advokat orderi (advokat so'rovi)",
-                        },
-                        {
-                            value: "court_decision",
-                            label: "Sud qarori / ajrimi",
-                        },
-                    ] as const
-                ).map((o) => (
-                    <button
-                        key={o.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={data.type === o.value}
-                        onClick={() => setData("type", o.value)}
-                        className={cn(
-                            "flex-1 rounded px-3 py-1.5 text-sm transition-colors",
-                            data.type === o.value
-                                ? "bg-primary text-primary-foreground"
-                                : "text-muted-foreground hover:text-foreground",
-                        )}
-                    >
-                        {o.label}
-                    </button>
-                ))}
+            <div className="flex flex-col gap-1">
+                <h3 className="text-base font-medium text-ink">
+                    Yangi huquqiy asos
+                </h3>
+                <p className="text-sm text-ink-secondary">
+                    {isOrder
+                        ? `Advokatura to'g'risidagi Qonunning 6- va 7¹-moddalari: idora ${orderMatrix.deadlines.default_days} kun ichida, sud ishi boshlangan bo'lsa ${orderMatrix.deadlines.proceedings_work_days} ish kuni ichida javob beradi. Sud qarori talab qilinmaydi`
+                        : "Raqam sud reyestridan tekshiriladi: subyekt, sud, muddat va ruxsat etilgan ma'lumot turlari avtomatik to'ldiriladi"}
+                </p>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-                {isOrder ? (
-                    <>
-                        Advokatura to'g'risidagi Qonunning 6- va 7¹-moddalari:
-                        advokat orderi asosida so'rov yuboriladi, idora{" "}
-                        {orderMatrix.deadlines.default_days} kun ichida, sud
-                        ishi boshlangan bo'lsa —{" "}
-                        {orderMatrix.deadlines.proceedings_work_days} ish kuni
-                        ichida javob beradi. Sud qarori talab qilinmaydi.
-                    </>
-                ) : (
-                    "Raqam sud reyestridan tekshiriladi: subyekt, sud, muddat va ruxsat etilgan ma'lumot turlari avtomatik to'ldiriladi."
-                )}
-            </p>
+            <Tabs
+                value={data.type}
+                onValueChange={(v) => setData("type", v as LegalBasisType)}
+                className="gap-6"
+            >
+                <TabsList aria-label="Asos turi">
+                    <TabsTrigger value="advocate_order">
+                        Advokat orderi
+                    </TabsTrigger>
+                    <TabsTrigger value="court_decision">
+                        Sud qarori yoki ajrimi
+                    </TabsTrigger>
+                </TabsList>
+            </Tabs>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="basis-number">
-                        {isOrder ? "Order raqami" : "Qaror / ajrim raqami"}
-                    </Label>
+            <div className="grid gap-6 sm:grid-cols-2">
+                <FormField
+                    label={isOrder ? "Order raqami" : "Qaror yoki ajrim raqami"}
+                    htmlFor="basis-number"
+                    error={errors.number}
+                    hint={
+                        isOrder
+                            ? "Advokatlar palatasining elektron orderlar reyestridan tekshiriladi: order faol va sizning litsenziyangiz bilan berilgan bo'lishi kerak"
+                            : undefined
+                    }
+                >
                     <Input
                         id="basis-number"
                         value={data.number}
@@ -849,48 +911,41 @@ function AddBasisForm({
                         }
                         required
                     />
-                    {isOrder && (
-                        <p className="text-xs text-muted-foreground">
-                            Advokatlar palatasining elektron orderlar
-                            reyestridan tekshiriladi: order faol va aynan
-                            sizning litsenziyangiz bilan berilgan bo'lishi
-                            kerak.
-                        </p>
-                    )}
-                    <InputError message={errors.number} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="basis-file">
-                        PDF nusxa{" "}
-                        <span className="text-muted-foreground">
-                            (ixtiyoriy)
-                        </span>
-                    </Label>
+                </FormField>
+                <FormField
+                    label="PDF nusxa"
+                    optional
+                    htmlFor="basis-file"
+                    error={errors.file}
+                >
                     <Input
                         id="basis-file"
                         type="file"
                         accept="application/pdf"
+                        className="py-2"
                         onChange={(e) =>
                             setData("file", e.target.files?.[0] ?? null)
                         }
                     />
-                    <InputError message={errors.file} />
-                </div>
+                </FormField>
             </div>
 
             {isOrder && (
                 <>
                     {issued ? (
-                        <p className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-                            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-                            <span>
-                                Elektron order berildi:{" "}
-                                <span className="font-mono font-medium">
-                                    {issued.order_number}
-                                </span>{" "}
-                                · {issued.client_name} · {issued.matter}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-success-border bg-success-soft px-4 py-3 text-sm text-ink">
+                            <span className="font-medium text-success">
+                                Elektron order berildi
                             </span>
-                        </p>
+                            <RegistryChip
+                                value={issued.order_number}
+                                kind="order"
+                                size="sm"
+                            />
+                            <span className="text-ink-secondary">
+                                {issued.client_name} · {issued.matter}
+                            </span>
+                        </div>
                     ) : issuing ? (
                         <IssueOrderForm
                             caseId={caseId}
@@ -903,143 +958,175 @@ function AddBasisForm({
                             }}
                         />
                     ) : (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIssuing(true)}
-                        >
-                            <ScrollText /> Elektron order berish (demo)
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIssuing(true)}
+                            >
+                                <ScrollText /> Elektron order berish (demo)
+                            </Button>
+                            <span className="text-xs text-ink-muted">
+                                Order raqami yo'q bo'lsa
+                            </span>
+                        </div>
                     )}
 
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="grid gap-2">
-                            <Label htmlFor="subject-pinfl">
-                                So'raladigan shaxs JShShIR
-                            </Label>
-                            <Input
-                                id="subject-pinfl"
-                                inputMode="numeric"
-                                maxLength={14}
-                                value={data.subject_pinfl}
-                                onChange={(e) =>
-                                    setData(
-                                        "subject_pinfl",
-                                        e.target.value.replace(/\D/g, ""),
-                                    )
-                                }
-                                className="font-mono"
-                                placeholder="14 ta raqam"
-                            />
-                            <InputError message={errors.subject_pinfl} />
+                    <div className="flex flex-col gap-4">
+                        <div className="grid gap-6 sm:grid-cols-3">
+                            <FormField
+                                label="So'raladigan shaxs JShShIR"
+                                htmlFor="subject-pinfl"
+                                error={errors.subject_pinfl}
+                            >
+                                <Input
+                                    id="subject-pinfl"
+                                    inputMode="numeric"
+                                    maxLength={14}
+                                    value={data.subject_pinfl}
+                                    onChange={(e) =>
+                                        setData(
+                                            "subject_pinfl",
+                                            e.target.value.replace(/\D/g, ""),
+                                        )
+                                    }
+                                    className="font-mono"
+                                    placeholder="14 ta raqam"
+                                />
+                            </FormField>
+                            <FormField
+                                label="So'raladigan shaxs F.I.Sh."
+                                htmlFor="subject-name"
+                                error={errors.subject_name}
+                            >
+                                <Input
+                                    id="subject-name"
+                                    value={data.subject_name}
+                                    onChange={(e) =>
+                                        setData("subject_name", e.target.value)
+                                    }
+                                />
+                            </FormField>
+                            <FormField
+                                label="Amal qilish muddati"
+                                htmlFor="expires-at"
+                                error={errors.expires_at}
+                            >
+                                <Input
+                                    id="expires-at"
+                                    type="date"
+                                    value={data.expires_at}
+                                    onChange={(e) =>
+                                        setData("expires_at", e.target.value)
+                                    }
+                                />
+                            </FormField>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="subject-name">
-                                So'raladigan shaxs F.I.Sh.
-                            </Label>
-                            <Input
-                                id="subject-name"
-                                value={data.subject_name}
-                                onChange={(e) =>
-                                    setData("subject_name", e.target.value)
-                                }
-                            />
-                            <InputError message={errors.subject_name} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="expires-at">
-                                Amal qilish muddati
-                            </Label>
-                            <Input
-                                id="expires-at"
-                                type="date"
-                                value={data.expires_at}
-                                onChange={(e) =>
-                                    setData("expires_at", e.target.value)
-                                }
-                            />
-                            <InputError message={errors.expires_at} />
-                        </div>
+                        <p className="text-xs text-ink-secondary">
+                            Order mijozni vakillik qilish vakolatini beradi.
+                            Ma'lumoti so'raladigan shaxsni (masalan, javobgarni)
+                            advokat o'zi ko'rsatadi va so'rov maqsadini ish
+                            mazmuniga bog'laydi.
+                        </p>
                     </div>
-                    <p className="-mt-2 text-xs text-muted-foreground">
-                        Order ishonch bildiruvchini (mijozni) vakillik qilish
-                        vakolatini beradi — ma'lumoti so'raladigan shaxsni
-                        (masalan, javobgarni) advokat o'zi ko'rsatadi va so'rov
-                        maqsadini ish mazmuniga bog'laydi.
-                    </p>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="order-purpose">So'rov maqsadi</Label>
-                        <textarea
+                    <FormField
+                        label="So'rov maqsadi"
+                        htmlFor="order-purpose"
+                        error={errors.purpose}
+                    >
+                        <Textarea
                             id="order-purpose"
                             rows={2}
                             maxLength={500}
+                            className="min-h-20"
                             value={data.purpose}
                             onChange={(e) => setData("purpose", e.target.value)}
                             placeholder="Masalan: aliment undirish ishi bo'yicha javobgarning undiruv qaratiladigan mol-mulkini aniqlash"
-                            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         />
-                        <InputError message={errors.purpose} />
-                    </div>
+                    </FormField>
 
-                    <fieldset className="space-y-2">
-                        <legend className="text-sm font-medium">
+                    <fieldset className="flex flex-col gap-3">
+                        <legend className="mb-3 text-sm font-medium text-ink">
                             Order qamraydigan ma'lumotlar
                         </legend>
                         <div className="grid gap-2 sm:grid-cols-2">
-                            {orderMatrix.order.map((t) => (
-                                <label
-                                    key={t.value}
-                                    className="flex items-center gap-2 text-sm"
-                                >
-                                    <Checkbox
-                                        checked={data.allowed_types.includes(
-                                            t.value,
+                            {orderMatrix.order.map((t) => {
+                                const checked = data.allowed_types.includes(
+                                    t.value,
+                                );
+
+                                return (
+                                    <label
+                                        key={t.value}
+                                        className={cn(
+                                            "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border bg-surface px-3 py-2 text-sm text-ink transition-colors hover:border-ink-muted/50",
+                                            checked &&
+                                                "border-brand bg-brand-soft hover:border-brand",
                                         )}
-                                        onCheckedChange={(v) =>
-                                            setData(
-                                                "allowed_types",
-                                                v === true
-                                                    ? [
-                                                          ...data.allowed_types,
-                                                          t.value,
-                                                      ]
-                                                    : data.allowed_types.filter(
-                                                          (x) => x !== t.value,
-                                                      ),
-                                            )
-                                        }
-                                    />
-                                    {t.label}
-                                </label>
-                            ))}
-                        </div>
-                        <div className="space-y-1.5 border-t pt-2">
-                            <p className="text-xs font-medium text-muted-foreground">
-                                Faqat sud qarori bilan (orderga kiritilmaydi):
-                            </p>
-                            {orderMatrix.court_only.map((t) => (
-                                <label
-                                    key={t.value}
-                                    className="flex items-start gap-2 text-sm text-muted-foreground opacity-70"
-                                    title={t.why ?? undefined}
-                                >
-                                    <Checkbox
-                                        checked={false}
-                                        disabled
-                                        className="mt-0.5"
-                                    />
-                                    <span>
+                                    >
+                                        <Checkbox
+                                            checked={checked}
+                                            onCheckedChange={(v) =>
+                                                setData(
+                                                    "allowed_types",
+                                                    v === true
+                                                        ? [
+                                                              ...data.allowed_types,
+                                                              t.value,
+                                                          ]
+                                                        : data.allowed_types.filter(
+                                                              (x) =>
+                                                                  x !== t.value,
+                                                          ),
+                                                )
+                                            }
+                                        />
+                                        <RequestTypeIcon
+                                            type={t.value}
+                                            className="size-4 shrink-0 text-ink-secondary"
+                                        />
                                         {t.label}
-                                        {t.why && (
-                                            <span className="block text-xs">
-                                                {t.why}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                        <div className="flex flex-col gap-2 pt-2">
+                            <p className="text-xs text-ink-secondary">
+                                Faqat sud qarori bilan, orderga kiritilmaydi
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {orderMatrix.court_only.map((t) => (
+                                    <div
+                                        key={t.value}
+                                        className="flex items-start gap-3 rounded-lg border border-dashed bg-page px-3 py-2.5 text-sm text-ink-muted"
+                                        title={t.why ?? undefined}
+                                    >
+                                        <Checkbox
+                                            checked={false}
+                                            disabled
+                                            aria-label={`${t.label}: faqat sud qarori bilan`}
+                                            className="mt-0.5"
+                                        />
+                                        <span className="flex flex-col gap-0.5">
+                                            <span className="flex items-center gap-2">
+                                                <Gavel
+                                                    className="size-4 shrink-0"
+                                                    strokeWidth={1.5}
+                                                    aria-hidden
+                                                />
+                                                {t.label}
                                             </span>
-                                        )}
-                                    </span>
-                                </label>
-                            ))}
+                                            {t.why && (
+                                                <span className="text-xs">
+                                                    {t.why}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                         <InputError
                             message={
@@ -1051,17 +1138,50 @@ function AddBasisForm({
                 </>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-end">
                 <Button type="button" variant="ghost" onClick={onDone}>
                     Bekor qilish
                 </Button>
                 <Button type="submit" disabled={processing}>
+                    {processing && <Spinner />}
                     {isOrder
                         ? "Orderni qo'shish va tekshirish"
                         : "Qo'shish va tekshirish"}
                 </Button>
             </div>
         </form>
+    );
+}
+
+function FormField({
+    label,
+    htmlFor,
+    optional = false,
+    hint,
+    error,
+    children,
+}: {
+    label: string;
+    htmlFor: string;
+    optional?: boolean;
+    hint?: string;
+    error?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex min-w-0 flex-col gap-2">
+            <Label htmlFor={htmlFor}>
+                {label}
+                {optional && (
+                    <span className="ml-1 font-normal text-ink-muted">
+                        ixtiyoriy
+                    </span>
+                )}
+            </Label>
+            {children}
+            {hint && <p className="text-xs text-ink-secondary">{hint}</p>}
+            <InputError message={error} />
+        </div>
     );
 }
 
@@ -1110,22 +1230,23 @@ function IssueOrderForm({
     };
 
     return (
-        <div className="space-y-3 rounded-md border border-dashed p-4">
-            <div>
-                <p className="text-sm font-medium">
+        <div className="flex flex-col gap-4 rounded-lg border bg-raised p-4 sm:p-5">
+            <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-ink">
                     Elektron order berish (demo)
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-ink-secondary">
                     Advokatlar palatasining elektron orderlar reyestrida ushbu
                     ish mijozi uchun order rasmiylashtiriladi va raqami formaga
-                    qo'yiladi.
+                    qo'yiladi
                 </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-                <div className="grid gap-1.5">
-                    <Label htmlFor="order-client-pinfl" className="text-xs">
-                        Mijoz JShShIR
-                    </Label>
+            <div className="grid gap-4 sm:grid-cols-3">
+                <FormField
+                    label="Mijoz JShShIR"
+                    htmlFor="order-client-pinfl"
+                    error={errors.client_pinfl}
+                >
                     <Input
                         id="order-client-pinfl"
                         inputMode="numeric"
@@ -1137,30 +1258,29 @@ function IssueOrderForm({
                         className="font-mono"
                         placeholder="14 ta raqam"
                     />
-                    <InputError message={errors.client_pinfl} />
-                </div>
-                <div className="grid gap-1.5">
-                    <Label htmlFor="order-client-name" className="text-xs">
-                        Mijoz F.I.Sh.
-                    </Label>
+                </FormField>
+                <FormField
+                    label="Mijoz F.I.Sh."
+                    htmlFor="order-client-name"
+                    error={errors.client_name}
+                >
                     <Input
                         id="order-client-name"
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
                     />
-                    <InputError message={errors.client_name} />
-                </div>
-                <div className="grid gap-1.5">
-                    <Label htmlFor="order-matter" className="text-xs">
-                        Ish mazmuni
-                    </Label>
+                </FormField>
+                <FormField
+                    label="Ish mazmuni"
+                    htmlFor="order-matter"
+                    error={errors.matter}
+                >
                     <Input
                         id="order-matter"
                         value={matter}
                         onChange={(e) => setMatter(e.target.value)}
                     />
-                    <InputError message={errors.matter} />
-                </div>
+                </FormField>
             </div>
             <div className="flex justify-end gap-2">
                 <Button
@@ -1172,6 +1292,7 @@ function IssueOrderForm({
                     Bekor qilish
                 </Button>
                 <Button type="button" size="sm" onClick={issue} disabled={busy}>
+                    {busy && <Spinner />}
                     Order berish
                 </Button>
             </div>
@@ -1210,27 +1331,18 @@ function ClientAccessSection({
     };
 
     return (
-        <section className="space-y-3 rounded-lg border bg-card p-5">
-            <div className="flex items-start gap-3">
-                <Link2 className="mt-0.5 size-5 text-muted-foreground" />
-                <div>
-                    <h3 className="font-medium">Mijoz uchun kirish</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Ishonch bildiruvchi OneID orqali kirib, ish va so'rovlar
-                        holatini ko'radi. Kirish faqat uning JShShIR'i advokat
-                        orderidagi mijoz JShShIR'iga mos kelsa beriladi. To'liq
-                        javoblar advokatda qoladi.
-                    </p>
-                </div>
-            </div>
-
-            {newUrl && <CopyLink url={newUrl} highlight />}
-
-            <form onSubmit={create} className="flex flex-wrap items-end gap-2">
-                <div className="grid min-w-56 flex-1 gap-1.5">
-                    <Label htmlFor="client-link-order" className="text-xs">
-                        Advokat orderi
-                    </Label>
+        <Section
+            title="Mijoz uchun kirish"
+            description="Ishonch bildiruvchi OneID orqali kirib, ish va so'rovlar holatini ko'radi. Kirish faqat uning JShShIR'i advokat orderidagi mijoz JShShIR'iga mos kelsa beriladi. To'liq javoblar advokatda qoladi"
+            className="max-w-4xl"
+            contentClassName="flex flex-col gap-6"
+        >
+            <form
+                onSubmit={create}
+                className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs sm:flex-row sm:items-end sm:p-6"
+            >
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <Label htmlFor="client-link-order">Advokat orderi</Label>
                     {candidates.length > 0 ? (
                         <Select
                             value={form.data.order_number}
@@ -1238,13 +1350,19 @@ function ClientAccessSection({
                                 form.setData("order_number", v)
                             }
                         >
-                            <SelectTrigger id="client-link-order">
+                            <SelectTrigger
+                                id="client-link-order"
+                                className="w-full"
+                            >
                                 <SelectValue placeholder="Orderni tanlang" />
                             </SelectTrigger>
                             <SelectContent>
                                 {candidates.map((b) => (
                                     <SelectItem key={b.id} value={b.number}>
-                                        {b.number} · {b.order?.client_name}
+                                        <span className="font-mono">
+                                            {b.number}
+                                        </span>{" "}
+                                        · {b.order?.client_name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -1260,32 +1378,48 @@ function ClientAccessSection({
                             }
                         />
                     )}
+                    <InputError message={form.errors.order_number} />
                 </div>
-                <Button type="submit" size="sm" disabled={form.processing}>
+                <Button
+                    type="submit"
+                    disabled={form.processing}
+                    className="h-11"
+                >
                     <Link2 /> Havola yaratish
                 </Button>
             </form>
-            <InputError message={form.errors.order_number} />
 
-            {active.length > 0 && (
-                <ul className="divide-y rounded-md border text-sm">
+            {newUrl && <CopyLink url={newUrl} highlight />}
+
+            {active.length === 0 ? (
+                <EmptyState
+                    icon={Link2}
+                    title="Faol mijoz havolasi yo'q"
+                    bordered
+                />
+            ) : (
+                <ul className="divide-y overflow-hidden rounded-lg border bg-card">
                     {active.map((l) => (
                         <li
                             key={l.id}
-                            className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                            className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                         >
-                            <div className="min-w-0">
-                                <span className="font-mono">
-                                    {l.order_number}
-                                </span>{" "}
-                                · {l.client_name ?? "Mijoz"}
-                                <div className="text-xs text-muted-foreground">
+                            <div className="flex min-w-0 flex-col gap-1">
+                                <span className="flex flex-wrap items-center gap-2 text-ink">
+                                    <RegistryChip
+                                        value={l.order_number}
+                                        kind="order"
+                                        size="sm"
+                                    />
+                                    {l.client_name ?? "Mijoz"}
+                                </span>
+                                <span className="text-xs text-ink-secondary tabular-nums">
                                     {l.granted_at
-                                        ? `Mijoz kirgan: ${fmtDate(l.granted_at)}`
+                                        ? `Mijoz kirgan ${fmtDate(l.granted_at)}`
                                         : "Mijoz hali kirmagan"}
                                     {l.last_viewed_at &&
                                         ` · oxirgi ko'rish ${fmtDate(l.last_viewed_at)}`}
-                                </div>
+                                </span>
                             </div>
                             <div className="flex items-center gap-1">
                                 {l.url && <CopyLink url={l.url} />}
@@ -1309,7 +1443,7 @@ function ClientAccessSection({
                     ))}
                 </ul>
             )}
-        </section>
+        </Section>
     );
 }
 
@@ -1321,22 +1455,23 @@ function CopyLink({
     highlight?: boolean;
 }) {
     const [copied, setCopied] = useState(false);
+    const copy = () => {
+        try {
+            void navigator.clipboard?.writeText(url);
+        } catch {
+            // clipboard unavailable
+        }
+        setCopied(true);
+    };
 
     return highlight ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-            <span className="min-w-0 flex-1 truncate font-mono text-xs">
+        <div className="flex flex-col gap-3 rounded-lg border border-brand-border bg-brand-soft px-4 py-3 sm:flex-row sm:items-center">
+            <span className="min-w-0 flex-1 truncate font-mono text-sm text-ink">
                 {url}
             </span>
-            <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                    void navigator.clipboard?.writeText(url);
-                    setCopied(true);
-                }}
-            >
-                <Copy /> {copied ? "Nusxalandi" : "Nusxalash"}
+            <Button type="button" size="sm" variant="outline" onClick={copy}>
+                {copied ? <Check /> : <Copy />}{" "}
+                {copied ? "Nusxalandi" : "Nusxalash"}
             </Button>
         </div>
     ) : (
@@ -1345,16 +1480,14 @@ function CopyLink({
             variant="ghost"
             size="sm"
             title={url}
-            onClick={() => {
-                void navigator.clipboard?.writeText(url);
-                setCopied(true);
-            }}
+            onClick={copy}
         >
-            <Copy /> {copied ? "Nusxalandi" : "Havola"}
+            {copied ? <Check /> : <Copy />} {copied ? "Nusxalandi" : "Havola"}
         </Button>
     );
 }
 
+/** Which request type is opened by which basis. */
 function CoveragePanel({
     coverage,
     requestTypes,
@@ -1362,46 +1495,86 @@ function CoveragePanel({
     coverage: Record<DataRequestType, CoverageEntry[]>;
     requestTypes: RequestTypeInfo[];
 }) {
+    const covered = requestTypes.filter(
+        (t) => (coverage[t.value] ?? []).length > 0,
+    ).length;
+
     return (
-        <aside className="h-fit space-y-3 rounded-lg border bg-card p-4">
-            <div>
-                <h3 className="text-sm font-medium">Qamrov</h3>
-                <p className="text-xs text-muted-foreground">
-                    Qaysi so'rov turini qaysi asos ochadi.
-                </p>
+        <aside
+            aria-labelledby="coverage-title"
+            className="flex h-fit flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs lg:sticky lg:top-[calc(var(--spacing-header)+24px)]"
+        >
+            <div className="flex items-baseline justify-between gap-2">
+                <h3
+                    id="coverage-title"
+                    className="text-base font-medium text-ink"
+                >
+                    Qamrov
+                </h3>
+                <span className="text-xs text-ink-muted tabular-nums">
+                    {covered} / {requestTypes.length} tur
+                </span>
             </div>
-            <ul className="space-y-3">
+            <ul className="-mx-1 flex flex-col">
                 {requestTypes.map((t) => {
                     const entries = coverage[t.value] ?? [];
+                    const ok = entries.length > 0;
+
                     return (
-                        <li key={t.value} className="space-y-1 text-sm">
-                            <div className="flex items-center gap-2">
-                                {entries.length > 0 ? (
-                                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <li
+                            key={t.value}
+                            className="flex flex-col gap-1.5 border-b border-hairline px-1 py-3 last:border-0"
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <RequestTypeIcon
+                                    type={t.value}
+                                    className={cn(
+                                        "size-4 shrink-0",
+                                        ok ? "text-ink" : "text-ink-muted",
+                                    )}
+                                />
+                                <span
+                                    className={cn(
+                                        "min-w-0 flex-1 text-sm",
+                                        ok
+                                            ? "font-medium text-ink"
+                                            : "text-ink-secondary",
+                                    )}
+                                >
+                                    {t.label}
+                                </span>
+                                {ok ? (
+                                    <Check
+                                        className="size-4 shrink-0 text-success"
+                                        strokeWidth={2}
+                                        aria-label="Qamralgan"
+                                    />
                                 ) : (
-                                    <XCircle className="size-4 text-muted-foreground" />
+                                    <span className="text-xs text-ink-muted">
+                                        Asos yo'q
+                                    </span>
                                 )}
-                                <span className="font-medium">{t.label}</span>
                             </div>
-                            {entries.length > 0 ? (
-                                entries.map((e) => (
-                                    <div
-                                        key={e.basis_id}
-                                        className="pl-6 text-xs text-muted-foreground"
-                                    >
-                                        <span className="font-mono">
-                                            {e.number}
-                                        </span>{" "}
-                                        · {e.subject_name ?? "—"}{" "}
-                                        <span className="font-mono">
-                                            {e.subject_pinfl_masked}
-                                        </span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="pl-6 text-xs text-muted-foreground">
-                                    {t.secrecy_regime}
+                            {ok ? (
+                                <div className="flex flex-wrap gap-1.5 pl-6.5">
+                                    {entries.map((e) => (
+                                        <RegistryChip
+                                            key={e.basis_id}
+                                            value={e.number}
+                                            kind={
+                                                e.basis_type ===
+                                                "court_decision"
+                                                    ? "decision"
+                                                    : "order"
+                                            }
+                                            size="sm"
+                                        />
+                                    ))}
                                 </div>
+                            ) : (
+                                <p className="pl-6.5 text-xs text-ink-muted">
+                                    {t.secrecy_regime}
+                                </p>
                             )}
                         </li>
                     );
@@ -1451,94 +1624,146 @@ function TeamSection({
     };
 
     return (
-        <div className="space-y-4">
-            <div>
-                <h2 className="font-medium">Jamoa</h2>
-                <p className="text-sm text-muted-foreground">
-                    Yurist javoblarni faqat advokat ruxsat bergandan va advokat
-                    siri majburiyatini qabul qilgandan so'ng ko'radi.
-                </p>
-            </div>
+        <Section
+            title="Jamoa"
+            description="Yurist javoblarni faqat advokat ruxsat bergandan va advokat siri majburiyatini qabul qilgandan so'ng ko'radi"
+            contentClassName="flex flex-col gap-6"
+        >
+            <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead>A'zo</TableHead>
+                            <TableHead className="hidden sm:table-cell">
+                                Advokat siri majburiyati
+                            </TableHead>
+                            <TableHead>Javoblarni ko'rish</TableHead>
+                            {can.manage_members && (
+                                <TableHead className="w-12">
+                                    <span className="sr-only">Amallar</span>
+                                </TableHead>
+                            )}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {members.map((m) => {
+                            const secrecy =
+                                m.role === "advocate"
+                                    ? "Ish egasi"
+                                    : m.secrecy_declared_at
+                                      ? `Qabul qilingan ${fmtDate(m.secrecy_declared_at)}`
+                                      : "Qabul qilinmagan";
 
-            <ul className="divide-y rounded-lg border bg-card">
-                {members.map((m) => (
-                    <li
-                        key={m.id}
-                        className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                        <div>
-                            <div className="font-medium">{m.user.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                                {m.role === "advocate"
-                                    ? "Advokat — ish egasi"
-                                    : "Yurist"}
-                                {m.role === "lawyer" &&
-                                    (m.secrecy_declared_at
-                                        ? ` · Advokat siri majburiyati: ${fmtDate(m.secrecy_declared_at)}`
-                                        : " · Advokat siri majburiyati qabul qilinmagan")}
-                            </div>
-                        </div>
-                        {m.role === "lawyer" && (
-                            <div className="flex items-center gap-4">
-                                <label
-                                    className={cn(
-                                        "flex items-center gap-2 text-sm",
-                                        !can.manage_members &&
-                                            "text-muted-foreground",
-                                    )}
-                                >
-                                    <Checkbox
-                                        checked={m.can_view_responses}
-                                        disabled={!can.manage_members}
-                                        onCheckedChange={(v) =>
-                                            toggle(m, v === true)
-                                        }
-                                    />
-                                    Javoblarni ko'rish ruxsati
-                                </label>
-                                {can.manage_members && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label="Ishdan chiqarish"
-                                        onClick={() => remove(m)}
+                            return (
+                                <TableRow key={m.id}>
+                                    <TableCell className="py-3">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-ink">
+                                                {m.user.name}
+                                            </span>
+                                            <span className="text-xs text-ink-secondary">
+                                                {m.role === "advocate"
+                                                    ? "Advokat"
+                                                    : "Yurist"}
+                                                <span className="sm:hidden">
+                                                    {" "}
+                                                    · {secrecy}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell
+                                        className={cn(
+                                            "hidden text-sm tabular-nums sm:table-cell",
+                                            m.role === "lawyer" &&
+                                                !m.secrecy_declared_at
+                                                ? "text-warning"
+                                                : "text-ink-secondary",
+                                        )}
                                     >
-                                        <Trash2 />
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-                        {m.role === "advocate" && (
-                            <Badge variant="outline">Barcha javoblar</Badge>
-                        )}
-                    </li>
-                ))}
-            </ul>
+                                        {secrecy}
+                                    </TableCell>
+                                    <TableCell>
+                                        {m.role === "advocate" ? (
+                                            <span className="text-sm text-ink-secondary">
+                                                Barcha javoblar
+                                            </span>
+                                        ) : (
+                                            <label
+                                                className={cn(
+                                                    "inline-flex items-center gap-2 text-sm",
+                                                    can.manage_members
+                                                        ? "cursor-pointer text-ink"
+                                                        : "text-ink-secondary",
+                                                )}
+                                            >
+                                                <Checkbox
+                                                    checked={
+                                                        m.can_view_responses
+                                                    }
+                                                    disabled={
+                                                        !can.manage_members
+                                                    }
+                                                    onCheckedChange={(v) =>
+                                                        toggle(m, v === true)
+                                                    }
+                                                />
+                                                {m.can_view_responses
+                                                    ? "Ruxsat berilgan"
+                                                    : "Ruxsat yo'q"}
+                                            </label>
+                                        )}
+                                    </TableCell>
+                                    {can.manage_members && (
+                                        <TableCell className="px-2 text-right">
+                                            {m.role === "lawyer" && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    aria-label="Ishdan chiqarish"
+                                                    onClick={() => remove(m)}
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
 
             {can.manage_members && (
                 <form
                     onSubmit={add}
-                    className="flex flex-col gap-2 rounded-lg border bg-card p-4 sm:flex-row sm:items-end"
+                    className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs sm:flex-row sm:items-end sm:p-6"
                 >
-                    <div className="grid flex-1 gap-2">
-                        <Label>Jamoadan yurist qo'shish</Label>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <Label htmlFor="add-lawyer">
+                            Jamoadan yurist qo'shish
+                        </Label>
                         {available_lawyers.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-secondary">
                                 Qo'shish mumkin bo'lgan yurist yo'q.{" "}
                                 <Link
                                     href="/team"
-                                    className="underline underline-offset-4"
+                                    className="text-ink underline underline-offset-4"
                                 >
                                     Jamoaga yurist taklif qiling
                                 </Link>
-                                .
                             </p>
                         ) : (
                             <Select
                                 value={lawyerId}
                                 onValueChange={setLawyerId}
                             >
-                                <SelectTrigger aria-label="Yurist">
+                                <SelectTrigger
+                                    id="add-lawyer"
+                                    aria-label="Yurist"
+                                    className="w-full"
+                                >
                                     <SelectValue placeholder="Yuristni tanlang" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1559,6 +1784,8 @@ function TeamSection({
                     {available_lawyers.length > 0 && (
                         <Button
                             type="submit"
+                            variant="outline"
+                            className="h-11"
                             disabled={!lawyerId || addForm.processing}
                         >
                             <UserPlus /> Qo'shish
@@ -1566,6 +1793,6 @@ function TeamSection({
                     )}
                 </form>
             )}
-        </div>
+        </Section>
     );
 }

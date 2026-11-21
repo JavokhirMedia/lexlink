@@ -35,7 +35,7 @@ class ProfileController extends Controller
     {
         $request->user()->fill($request->validated())->save();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Profil saqlandi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Profil saqlandi']);
 
         return to_route('profile.edit');
     }

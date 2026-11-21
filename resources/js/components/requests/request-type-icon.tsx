@@ -1,6 +1,7 @@
 /**
  * Lucide icon per data request type (LegalMatrix types). Use everywhere a type is iconised.
  *   <RequestTypeIcon type="bank_accounts" className="size-4" />
+ * Stroke 1.5, colour comes from the caller's text role (docs/DESIGN.md "Icons").
  */
 import {
     Banknote,
@@ -40,5 +41,5 @@ export function RequestTypeIcon({
 }) {
     const Icon = requestTypeIcon(type);
 
-    return <Icon className={className} aria-hidden />;
+    return <Icon className={className} strokeWidth={1.5} aria-hidden />;
 }

@@ -1,6 +1,9 @@
+import { normalizeApostrophes } from '@/lib/utils';
 import { Head, Link, router, usePoll } from "@inertiajs/react";
 import { useEcho } from "@laravel/echo-react";
 import {
+    Archive,
+    FileLock,
     Landmark,
     Lock,
     PenLine,
@@ -8,16 +11,19 @@ import {
     TriangleAlert,
     XCircle,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { MaskedPinfl } from "@/components/brand/masked-pinfl";
-import { DeadlineChip } from "@/components/orders/deadline-chip";
 import { formatMoney } from "@/components/brand/money";
 import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
+import { Section } from "@/components/brand/section";
 import { StatusBadge } from "@/components/brand/status-badge";
 import { SecrecyDeclarationDialog } from "@/components/legal/secrecy-declaration-dialog";
+import { DeadlineChip } from "@/components/orders/deadline-chip";
 import { AiPanelSlot } from "@/components/requests/ai-panel-slot";
 import { BasisCheckPanel } from "@/components/requests/basis-check-panel";
 import { ResponseFullView } from "@/components/requests/response-full-view";
+import { ResponseLocked } from "@/components/requests/response-locked";
 import { ResponseSummaryCard } from "@/components/requests/response-summary-card";
 import { SignDialog } from "@/components/requests/sign-dialog";
 import { StatusTimeline } from "@/components/requests/status-timeline";
@@ -35,7 +41,7 @@ import {
     formatMonth,
 } from "@/components/requests/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { index as auditIndex } from "@/routes/audit";
 import { index as casesIndex, show as caseShow } from "@/routes/cases";
 import { index as requestsIndex, requestSignature } from "@/routes/requests";
 import type {
@@ -74,17 +80,34 @@ const LIVE_PROPS = [
     "permissions",
 ];
 
-function Field({
-    label,
+function Field({ label, children }: { label: string; children: ReactNode }) {
+    return (
+        <div className="flex min-w-0 flex-col gap-1 py-3 first:pt-0 last:pb-0">
+            <dt className="text-meta text-ink-secondary">{label}</dt>
+            <dd className="text-sm break-words text-ink">{children}</dd>
+        </div>
+    );
+}
+
+function Alert({
+    icon: Icon,
+    title,
     children,
 }: {
-    label: string;
-    children: React.ReactNode;
+    icon: typeof XCircle;
+    title: string;
+    children?: ReactNode;
 }) {
     return (
-        <div className="min-w-0">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="mt-0.5 text-sm break-words">{children}</dd>
+        <div
+            role="alert"
+            className="flex items-start gap-3 rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm"
+        >
+            <Icon className="mt-0.5 size-[18px] shrink-0 text-danger" aria-hidden />
+            <div className="flex flex-col gap-1">
+                <p className="font-medium text-danger">{title}</p>
+                {children}
+            </div>
         </div>
     );
 }
@@ -134,6 +157,75 @@ export default function RequestShow(props: Props) {
 
     const params = r.params ?? {};
     const blocked = basis_check && !basis_check.ok;
+    const basisKind =
+        r.legal_basis?.type === "advocate_order" ? "order" : "decision";
+
+    const caseLink = (
+        <Button variant="outline" size="sm" asChild>
+            <Link href={caseShow.url(legalCase.id)}>Ishga qaytish</Link>
+        </Button>
+    );
+
+    let responseBody: ReactNode = null;
+
+    if (response) {
+        if (permissions.is_admin) {
+            responseBody = (
+                <ResponseLocked
+                    icon={Lock}
+                    title="Administrator faqat metama'lumotlarni ko'radi"
+                    description="Javob mazmuni advokat siri hisoblanadi"
+                    action={
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={auditIndex.url()}>Audit jurnali</Link>
+                        </Button>
+                    }
+                />
+            );
+        } else if (permissions.needs_secrecy_declaration) {
+            responseBody = (
+                <ResponseLocked
+                    icon={FileLock}
+                    title="Javobni ko'rish uchun majburiyat kerak"
+                    description="Ushbu ish bo'yicha advokat sirini saqlash majburiyatini qabul qiling"
+                    action={
+                        <Button onClick={() => setSecrecyOpen(true)}>
+                            Majburiyatni qabul qilish
+                        </Button>
+                    }
+                />
+            );
+        } else if (!permissions.can_view_response) {
+            responseBody = (
+                <ResponseLocked
+                    icon={Lock}
+                    title="Javoblarni ko'rish ruxsati berilmagan"
+                    description="Advokat sizga ushbu ish bo'yicha javoblarni ko'rish ruxsatini bermagan"
+                    action={caseLink}
+                />
+            );
+        } else if (response.purged) {
+            responseBody = (
+                <ResponseLocked
+                    icon={Archive}
+                    title="To'liq javob saqlash muddati tugagani uchun o'chirilgan"
+                    description={
+                        response.purged_at
+                            ? `O'chirildi ${formatDateTime(response.purged_at)}. Qisqacha ma'lumot saqlanadi`
+                            : "Qisqacha ma'lumot saqlanadi"
+                    }
+                    action={caseLink}
+                />
+            );
+        } else {
+            responseBody = (
+                <ResponseFullView requestId={r.id} type={r.type} />
+            );
+        }
+    }
+
+    const showFullHeading =
+        response && !(permissions.can_view_response && !response.purged);
 
     return (
         <>
@@ -146,13 +238,10 @@ export default function RequestShow(props: Props) {
                             Ish:{" "}
                             <Link
                                 href={caseShow.url(legalCase.id)}
-                                className="font-medium text-foreground hover:underline"
+                                className="focus-ring rounded-xs text-ink underline decoration-hairline underline-offset-4 transition-colors hover:decoration-ink"
                             >
                                 {legalCase.title}
                             </Link>
-                            {legalCase.court_case_number
-                                ? ` · ${legalCase.court_case_number}`
-                                : ""}
                         </>
                     }
                     meta={
@@ -161,14 +250,29 @@ export default function RequestShow(props: Props) {
                                 status={r.status}
                                 label={r.status_label}
                             />
-                            <span className="inline-flex items-center gap-1">
-                                <Landmark className="size-3.5" aria-hidden />
+                            {r.gov_request_id && (
+                                <RegistryChip
+                                    value={r.gov_request_id}
+                                    kind="gov"
+                                    copyable
+                                />
+                            )}
+                            <span className="inline-flex items-center gap-1.5">
+                                <Landmark
+                                    className="size-4 text-ink-muted"
+                                    strokeWidth={1.5}
+                                    aria-hidden
+                                />
                                 {r.agency}
                             </span>
-                            {r.gov_request_id && (
-                                <span className="font-mono">
-                                    {r.gov_request_id}
-                                </span>
+                            {r.due_at && (
+                                <DeadlineChip
+                                    dueAt={r.due_at}
+                                    status={r.status}
+                                    deadlineLabel={r.deadline_label}
+                                    answeredOnTime={r.answered_on_time}
+                                    compact
+                                />
                             )}
                         </>
                     }
@@ -207,250 +311,236 @@ export default function RequestShow(props: Props) {
                     }
                 />
 
-                {r.due_at && (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <DeadlineChip
-                            dueAt={r.due_at}
-                            status={r.status}
-                            deadlineLabel={r.deadline_label}
-                            answeredOnTime={r.answered_on_time}
-                        />
+                <section
+                    aria-labelledby="timeline-title"
+                    className="rounded-xl border bg-card p-6 shadow-xs"
+                >
+                    <div className="mb-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2
+                            id="timeline-title"
+                            className="text-base font-medium text-ink"
+                        >
+                            So'rov bosqichlari
+                        </h2>
                         {r.deadline_label && (
-                            <span className="text-xs text-muted-foreground">
+                            <p className="text-meta text-ink-secondary">
                                 {r.deadline_label}
-                            </span>
+                            </p>
                         )}
                     </div>
-                )}
+                    <StatusTimeline
+                        steps={timeline}
+                        signer={r.signer}
+                        govRequestId={r.gov_request_id}
+                    />
+                </section>
 
-                <Card>
-                    <CardContent className="pt-6">
-                        <StatusTimeline steps={timeline} />
-                    </CardContent>
-                </Card>
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                    <div className="flex min-w-0 flex-col gap-10">
+                        {r.status === "rejected" && (
+                            <Alert icon={XCircle} title="Idora so'rovni rad etdi">
+                                <p className="text-ink">{r.rejection_reason}</p>
+                                <p className="text-meta text-ink-secondary">
+                                    To'langan mablag' (yoki obuna limiti)
+                                    qaytarildi
+                                </p>
+                            </Alert>
+                        )}
+                        {r.status === "failed" && (
+                            <Alert icon={TriangleAlert} title="Texnik xato">
+                                <p className="text-ink">{r.failure_reason}</p>
+                            </Alert>
+                        )}
 
-                {r.status === "rejected" && (
-                    <div
-                        role="alert"
-                        className="flex items-start gap-3 rounded-md border border-danger-border bg-danger-soft p-4 text-sm"
-                    >
-                        <XCircle
-                            className="mt-0.5 size-5 shrink-0 text-danger"
-                            aria-hidden
-                        />
-                        <div>
-                            <p className="font-medium text-danger">
-                                Idora so'rovni rad etdi
-                            </p>
-                            <p>{r.rejection_reason}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                To'langan mablag' (yoki obuna limiti)
-                                qaytarildi.
-                            </p>
-                        </div>
-                    </div>
-                )}
-                {r.status === "failed" && (
-                    <div
-                        role="alert"
-                        className="flex items-start gap-3 rounded-md border border-danger-border bg-danger-soft p-4 text-sm"
-                    >
-                        <TriangleAlert
-                            className="mt-0.5 size-5 shrink-0 text-danger"
-                            aria-hidden
-                        />
-                        <div>
-                            <p className="font-medium text-danger">
-                                Texnik xato
-                            </p>
-                            <p>{r.failure_reason}</p>
-                        </div>
-                    </div>
-                )}
+                        {(r.status === "draft" ||
+                            r.status === "awaiting_signature") &&
+                            basis_check && (
+                                <div className="flex flex-col gap-3">
+                                    <BasisCheckPanel check={basis_check} />
+                                    {r.status === "awaiting_signature" &&
+                                        !permissions.can_sign && (
+                                            <p className="text-sm text-ink-secondary">
+                                                So'rov advokat imzosini
+                                                kutmoqda. Imzolangach idoraga
+                                                avtomatik yuboriladi.
+                                            </p>
+                                        )}
+                                </div>
+                            )}
 
-                {(r.status === "draft" || r.status === "awaiting_signature") &&
-                    basis_check && (
-                        <div className="space-y-2">
-                            <BasisCheckPanel check={basis_check} />
-                            {r.status === "awaiting_signature" &&
-                                !permissions.can_sign && (
-                                    <p className="text-sm text-muted-foreground">
-                                        So'rov advokat imzosini kutmoqda.
-                                        Imzolangach idoraga avtomatik
-                                        yuboriladi.
-                                    </p>
-                                )}
-                        </div>
-                    )}
+                        {response && <ResponseSummaryCard response={response} />}
 
-                {response && (
-                    <div className="space-y-4">
-                        <ResponseSummaryCard response={response} />
+                        {response &&
+                            (showFullHeading ? (
+                                <Section title="To'liq javob">
+                                    {responseBody}
+                                </Section>
+                            ) : (
+                                responseBody
+                            ))}
 
-                        {permissions.is_admin ? (
-                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Lock className="size-4" aria-hidden />
-                                Administrator faqat metama'lumotlarni ko'radi —
-                                javob mazmuni advokat siri.
-                            </p>
-                        ) : permissions.needs_secrecy_declaration ? (
-                            <Card>
-                                <CardContent className="flex flex-col items-start gap-3 pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
-                                    <p className="flex items-start gap-2">
-                                        <Lock
-                                            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                                            aria-hidden
-                                        />
-                                        Javobni ko'rish uchun ushbu ish bo'yicha
-                                        advokat sirini saqlash majburiyatini
-                                        qabul qiling.
-                                    </p>
-                                    <Button
-                                        onClick={() => setSecrecyOpen(true)}
-                                    >
-                                        Majburiyatni qabul qilish
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        ) : !permissions.can_view_response ? (
-                            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Lock className="size-4" aria-hidden />
-                                Advokat sizga ushbu ish bo'yicha javoblarni
-                                ko'rish ruxsatini bermagan.
-                            </p>
-                        ) : !response.purged ? (
-                            <ResponseFullView requestId={r.id} type={r.type} />
-                        ) : null}
-
-                        {permissions.can_view_response && (
+                        {response && permissions.can_view_response && (
                             <AiPanelSlot
                                 requestId={r.id}
                                 analysis={ai_analysis}
                             />
                         )}
+
+                        <Section title="So'rov matni">
+                            <article className="rounded-lg border bg-card shadow-xs">
+                                <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-6 py-3 text-meta text-ink-secondary sm:px-10">
+                                    <span>
+                                        Advokat so'rovi #{r.id} · {r.agency}
+                                    </span>
+                                    {r.signed_at && (
+                                        <span className="tabular-nums">
+                                            {formatDate(r.signed_at)}
+                                        </span>
+                                    )}
+                                </header>
+                                <div className="flex flex-col gap-4 px-6 py-6 sm:px-10 sm:py-8">
+                                    {r.purpose && (
+                                        <p className="max-w-[68ch] text-sm text-ink-secondary">
+                                            Maqsad:{" "}
+                                            <span className="text-ink">
+                                                {r.purpose}
+                                            </span>
+                                        </p>
+                                    )}
+                                    {r.request_text ? (
+                                        <p className="max-w-[68ch] text-base leading-[26px] whitespace-pre-wrap text-ink">
+                                            {normalizeApostrophes(r.request_text)}
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm text-ink-muted">
+                                            Matn kiritilmagan
+                                        </p>
+                                    )}
+                                </div>
+                            </article>
+                        </Section>
                     </div>
-                )}
 
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>So'rov matni</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {r.purpose && (
-                                <p className="text-sm">
-                                    <span className="text-muted-foreground">
-                                        Maqsad:{" "}
-                                    </span>
-                                    {r.purpose}
-                                </p>
+                    <aside
+                        aria-labelledby="requisites-title"
+                        className="rounded-lg border bg-card p-6 shadow-xs lg:sticky lg:top-[96px]"
+                    >
+                        <h2
+                            id="requisites-title"
+                            className="mb-4 text-base font-medium text-ink"
+                        >
+                            Rekvizitlar
+                        </h2>
+                        <dl className="flex flex-col divide-y divide-hairline">
+                            <Field label="Shaxs">
+                                <span className="flex flex-col items-start gap-1.5">
+                                    {r.subject_name ?? "—"}
+                                    {r.subject_pinfl_masked && (
+                                        <RegistryChip
+                                            value={r.subject_pinfl_masked}
+                                            kind="pinfl"
+                                            size="sm"
+                                        />
+                                    )}
+                                </span>
+                            </Field>
+                            {typeof params.period_from === "string" && (
+                                <Field label="Davr">
+                                    {formatMonth(params.period_from as string)}{" "}
+                                    — {formatMonth(params.period_to as string)}
+                                </Field>
                             )}
-                            <div className="rounded-md border bg-muted/30 p-4 text-sm leading-relaxed whitespace-pre-wrap">
-                                {r.request_text || (
-                                    <span className="text-muted-foreground">
-                                        Matn kiritilmagan
+                            {typeof params.cadastral_number === "string" && (
+                                <Field label="Kadastr raqami">
+                                    <span className="font-mono text-meta">
+                                        {params.cadastral_number}
                                     </span>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Rekvizitlar</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <dl className="grid gap-3">
-                                <Field label="Shaxs">
-                                    {r.subject_name ?? "—"}{" "}
-                                    <MaskedPinfl
-                                        value={r.subject_pinfl_masked}
+                                </Field>
+                            )}
+                            {typeof params.court_case_number === "string" && (
+                                <Field label="Sud ishi raqami">
+                                    <RegistryChip
+                                        value={params.court_case_number}
+                                        kind="case"
+                                        size="sm"
                                     />
                                 </Field>
-                                {typeof params.period_from === "string" && (
-                                    <Field label="Davr">
-                                        {formatMonth(
-                                            params.period_from as string,
-                                        )}{" "}
-                                        —{" "}
-                                        {formatMonth(
-                                            params.period_to as string,
-                                        )}
-                                    </Field>
-                                )}
-                                {typeof params.cadastral_number ===
-                                    "string" && (
-                                    <Field label="Kadastr raqami">
-                                        {params.cadastral_number}
-                                    </Field>
-                                )}
-                                {typeof params.court_case_number ===
-                                    "string" && (
-                                    <Field label="Sud ishi raqami">
-                                        {params.court_case_number}
-                                    </Field>
-                                )}
-                                <Field label="Huquqiy asos">
-                                    {r.legal_basis ? (
-                                        <>
-                                            {r.legal_basis.type_label} №{" "}
-                                            {r.legal_basis.number}
-                                            {r.legal_basis.expires_at && (
-                                                <span className="text-muted-foreground">
-                                                    {" "}
-                                                    ·{" "}
-                                                    {formatDate(
-                                                        r.legal_basis
-                                                            .expires_at,
-                                                    )}{" "}
-                                                    gacha
-                                                </span>
-                                            )}
-                                        </>
-                                    ) : (
-                                        "—"
-                                    )}
-                                </Field>
-                                <Field label="Maxfiylik rejimi">
-                                    {r.secrecy_regime}
-                                </Field>
-                                <Field label="Tayyorladi">
-                                    {r.creator?.name ?? "—"}
-                                </Field>
-                                <Field label="Imzoladi (ERI, demo)">
-                                    {r.signer ? (
-                                        <>
-                                            {r.signer.name}
-                                            {r.signer.license_number && (
-                                                <span className="text-muted-foreground">
-                                                    {" "}
-                                                    · {r.signer.license_number}
-                                                </span>
-                                            )}
-                                            <br />
-                                            <span className="text-xs text-muted-foreground">
-                                                {formatDateTime(r.signed_at)}
+                            )}
+                            <Field label="Huquqiy asos">
+                                {r.legal_basis ? (
+                                    <span className="flex flex-col items-start gap-1.5">
+                                        {r.legal_basis.type_label}
+                                        <RegistryChip
+                                            value={r.legal_basis.number}
+                                            kind={basisKind}
+                                            size="sm"
+                                        />
+                                        {r.legal_basis.expires_at && (
+                                            <span className="text-meta text-ink-secondary">
+                                                {formatDate(
+                                                    r.legal_basis.expires_at,
+                                                )}{" "}
+                                                gacha amal qiladi
                                             </span>
-                                            {r.signature && (
-                                                <span className="block font-mono text-xs break-all text-muted-foreground">
-                                                    {r.signature.slice(0, 32)}…
-                                                </span>
-                                            )}
-                                        </>
-                                    ) : (
-                                        "—"
-                                    )}
+                                        )}
+                                    </span>
+                                ) : (
+                                    "—"
+                                )}
+                            </Field>
+                            {legalCase.court_case_number && (
+                                <Field label="Ish raqami">
+                                    <RegistryChip
+                                        value={legalCase.court_case_number}
+                                        kind="case"
+                                        size="sm"
+                                    />
                                 </Field>
-                                {r.signed_at && (
-                                    <Field label="To'lov">
+                            )}
+                            <Field label="Maxfiylik rejimi">
+                                {r.secrecy_regime}
+                            </Field>
+                            <Field label="Tayyorladi">
+                                {r.creator?.name ?? "—"}
+                            </Field>
+                            <Field label="Imzoladi (ERI, demo)">
+                                {r.signer ? (
+                                    <span className="flex flex-col items-start gap-1.5">
+                                        {r.signer.name}
+                                        {r.signer.license_number && (
+                                            <RegistryChip
+                                                value={r.signer.license_number}
+                                                kind="license"
+                                                size="sm"
+                                            />
+                                        )}
+                                        <span className="text-meta text-ink-secondary tabular-nums">
+                                            {formatDateTime(r.signed_at)}
+                                        </span>
+                                        {r.signature && (
+                                            <span
+                                                className="max-w-full truncate font-mono text-meta text-ink-muted"
+                                                title={r.signature}
+                                            >
+                                                {r.signature.slice(0, 32)}…
+                                            </span>
+                                        )}
+                                    </span>
+                                ) : (
+                                    "—"
+                                )}
+                            </Field>
+                            {r.signed_at && (
+                                <Field label="To'lov">
+                                    <span className="tabular-nums">
                                         {r.charged_from_subscription
                                             ? "Obuna doirasida"
                                             : formatMoney(r.cost)}
-                                    </Field>
-                                )}
-                            </dl>
-                        </CardContent>
-                    </Card>
+                                    </span>
+                                </Field>
+                            )}
+                        </dl>
+                    </aside>
                 </div>
             </div>
 

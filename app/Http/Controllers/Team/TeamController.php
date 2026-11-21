@@ -91,7 +91,7 @@ class TeamController extends Controller
             $audit->log(AuditAction::LawyerInvited, $link, ['contact' => $contact]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Taklif havolasi yaratildi. Uni yuristga yuboring.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Taklif havolasi yaratildi — uni yuristga yuboring']);
         Inertia::flash('invite_url', route('invites.show', $link->token));
 
         return to_route('team.index');
@@ -123,7 +123,7 @@ class TeamController extends Controller
             });
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Yurist jamoadan chiqarildi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Yurist jamoadan chiqarildi']);
 
         return to_route('team.index');
     }

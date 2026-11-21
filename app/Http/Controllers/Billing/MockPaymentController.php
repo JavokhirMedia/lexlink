@@ -60,7 +60,7 @@ class MockPaymentController extends Controller
         $tx = $this->billing->topup($request->user(), $result['amount'], $gateway->code(), $result['external_id']);
 
         $amount = number_format($result['amount'], 0, ',', ' ');
-        Inertia::flash('toast', ['type' => 'success', 'message' => "Balans {$amount} so'mga to'ldirildi."]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Balans {$amount} so'mga to'ldirildi"]);
 
         return response()->json([
             'status' => $result['status'],

@@ -52,7 +52,7 @@ class ClientLinkController extends Controller
         ], $legalCase->id);
 
         Inertia::flash('client_link_url', route('client.access', $link->token));
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Mijoz uchun kirish havolasi yaratildi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Mijoz uchun kirish havolasi yaratildi']);
 
         return back();
     }
@@ -67,7 +67,7 @@ class ClientLinkController extends Controller
             $audit->log(AuditAction::ClientLinkRevoked, $link, ['order_number' => $link->order_number], $legalCase->id);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Mijoz havolasi bekor qilindi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Mijoz havolasi bekor qilindi']);
 
         return back();
     }

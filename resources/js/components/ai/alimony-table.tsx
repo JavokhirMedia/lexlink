@@ -1,7 +1,20 @@
+import { formatNumber } from '@/components/brand/money';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { AlimonyCalculation } from '@/types/lexlink';
 import { formatSum } from './format';
 
+/**
+ * Alimony calculation (done in PHP, not by the model): four figures in one strip,
+ * then the share table. The row for this case is emphasised with brand-soft.
+ */
 export function AlimonyTable({
     calc,
     className,
@@ -13,8 +26,8 @@ export function AlimonyTable({
     const floorUsed = calc.options.some((o) => o.floor_applied);
 
     return (
-        <div className={cn('space-y-3', className)}>
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className={cn('flex flex-col gap-4 @container', className)}>
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-hairline @xl:grid-cols-4">
                 <Stat
                     label="Davr"
                     value={
@@ -23,7 +36,10 @@ export function AlimonyTable({
                             : '—'
                     }
                 />
-                <Stat label="Oylar soni" value={String(calc.months_count)} />
+                <Stat
+                    label="Oylar soni"
+                    value={formatNumber(calc.months_count)}
+                />
                 <Stat
                     label="Jami daromad"
                     value={formatSum(calc.total_income)}
@@ -35,66 +51,65 @@ export function AlimonyTable({
                 />
             </dl>
 
-            <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-                        <tr>
-                            <th className="px-3 py-2 font-medium">
-                                Bolalar soni
-                            </th>
-                            <th className="px-3 py-2 font-medium">Ulush</th>
-                            <th className="px-3 py-2 text-right font-medium">
+            <div className="overflow-hidden rounded-lg border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead>Bolalar soni</TableHead>
+                            <TableHead>Ulush</TableHead>
+                            <TableHead className="text-right">
                                 Aliment / oy
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
                         {calc.options.map((o) => {
                             const active =
                                 selected !== null &&
                                 Math.min(selected, 3) === o.children;
 
                             return (
-                                <tr
+                                <TableRow
                                     key={o.children}
+                                    aria-current={active ? 'true' : undefined}
                                     className={cn(
-                                        'border-t',
-                                        active && 'bg-primary/5 font-medium',
+                                        active &&
+                                            'bg-brand-soft font-medium hover:bg-brand-soft',
                                     )}
                                 >
-                                    <td className="px-3 py-2">
+                                    <TableCell className="sm:whitespace-nowrap">
                                         {o.label}
                                         {active && (
-                                            <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
-                                                ishda
+                                            <span className="block text-meta font-normal text-brand sm:ml-2 sm:inline">
+                                                ushbu ish
                                             </span>
                                         )}
-                                    </td>
-                                    <td className="px-3 py-2 tabular-nums">
+                                    </TableCell>
+                                    <TableCell className="font-mono text-meta">
                                         {o.share}
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums">
+                                    </TableCell>
+                                    <TableCell className="text-right whitespace-nowrap">
                                         {formatSum(
                                             active && calc.selected
                                                 ? calc.selected.amount
                                                 : o.amount,
                                         )}
                                         {o.floor_applied && (
-                                            <span className="text-muted-foreground">
+                                            <span className="text-ink-muted">
                                                 {' '}
                                                 *
                                             </span>
                                         )}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             );
                         })}
-                    </tbody>
-                </table>
+                    </TableBody>
+                </Table>
             </div>
-            <p className="text-xs text-muted-foreground">
-                Hisob PHP da bajarilgan (model emas): {calc.legal_basis} — 1
-                bola 1/4, 2 bola 1/3, 3 va undan ortiq 1/2.
+            <p className="text-meta text-ink-secondary">
+                Hisob PHP'da bajarilgan, model emas: {calc.legal_basis} — 1 bola
+                1/4, 2 bola 1/3, 3 va undan ortiq 1/2.
                 {floorUsed &&
                     ` * Har bir bola uchun eng kam miqdor: eng kam ish haqining 26,5 % i (${formatSum(calc.min_per_child)}).`}
             </p>
@@ -112,12 +127,12 @@ function Stat({
     strong?: boolean;
 }) {
     return (
-        <div className="rounded-md border bg-background px-3 py-2">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
+        <div className="flex min-w-0 flex-col gap-1 bg-card px-4 py-3">
+            <dt className="text-meta text-ink-secondary">{label}</dt>
             <dd
                 className={cn(
-                    'mt-0.5 text-sm tabular-nums',
-                    strong && 'font-semibold text-primary',
+                    'text-base font-semibold break-words tabular-nums',
+                    strong ? 'text-brand' : 'text-ink',
                 )}
             >
                 {value}

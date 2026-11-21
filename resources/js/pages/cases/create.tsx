@@ -1,8 +1,9 @@
 import { Head, Link, useForm } from "@inertiajs/react";
 import { Plus, Trash2 } from "lucide-react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { PageHeader } from "@/components/brand/page-header";
+import { Section } from "@/components/brand/section";
 import InputError from "@/components/input-error";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
     create as casesCreate,
     index as casesIndex,
@@ -71,46 +73,47 @@ export default function CasesCreate({
     return (
         <>
             <Head title="Yangi ish" />
-            <div className="w-full max-w-3xl">
-                <div className="mb-6">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                        Yangi ish
-                    </h1>
-                    <p className="text-sm text-muted-foreground">
-                        Ish ma'lumotlarini kiriting. Huquqiy asoslar va
-                        so'rovlar ish sahifasida qo'shiladi.
-                    </p>
-                </div>
+            <div className="flex w-full max-w-3xl flex-col gap-8">
+                <PageHeader
+                    title="Yangi ish"
+                    description="Ish ma'lumotlarini kiriting. Huquqiy asoslar va so'rovlar ish sahifasida qo'shiladi"
+                />
 
                 {noAdvocate && (
-                    <Alert className="mb-6">
-                        <AlertDescription>
-                            Ish faqat advokatga biriktiriladi. Siz hali hech bir
-                            advokat jamoasiga qo'shilmagansiz — advokatdan
-                            taklif havolasini so'rang.
-                        </AlertDescription>
-                    </Alert>
+                    <div
+                        role="alert"
+                        className="rounded-lg border border-warning-border bg-warning-soft px-4 py-3 text-sm text-ink"
+                    >
+                        Ish faqat advokatga biriktiriladi. Siz hali hech bir
+                        advokat jamoasiga qo'shilmagansiz, advokatdan taklif
+                        havolasini so'rang
+                    </div>
                 )}
 
-                <form onSubmit={submit} className="space-y-8">
-                    <section className="space-y-4 rounded-lg border bg-card p-5">
-                        <div className="grid gap-2">
-                            <Label htmlFor="title">Ish nomi</Label>
+                <form onSubmit={submit} className="flex flex-col gap-10">
+                    <Section
+                        title="Ish ma'lumotlari"
+                        card
+                        contentClassName="flex flex-col gap-6"
+                    >
+                        <Field label="Ish nomi" htmlFor="title" error={errors.title}>
                             <Input
                                 id="title"
                                 value={data.title}
                                 onChange={(e) =>
                                     setData("title", e.target.value)
                                 }
-                                placeholder="Masalan: Aliment undirish — Karimova D."
+                                placeholder="Masalan: Aliment undirish — Karimova N."
                                 required
                             />
-                            <InputError message={errors.title} />
-                        </div>
+                        </Field>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label htmlFor="client_name">Mijoz</Label>
+                        <div className="grid gap-6 sm:grid-cols-2">
+                            <Field
+                                label="Mijoz"
+                                htmlFor="client_name"
+                                error={errors.client_name}
+                            >
                                 <Input
                                     id="client_name"
                                     value={data.client_name}
@@ -120,15 +123,13 @@ export default function CasesCreate({
                                     placeholder="F.I.Sh."
                                     required
                                 />
-                                <InputError message={errors.client_name} />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="court_case_number">
-                                    Sud ishi raqami{" "}
-                                    <span className="text-muted-foreground">
-                                        (ixtiyoriy)
-                                    </span>
-                                </Label>
+                            </Field>
+                            <Field
+                                label="Sud ishi raqami"
+                                optional
+                                htmlFor="court_case_number"
+                                error={errors.court_case_number}
+                            >
                                 <Input
                                     id="court_case_number"
                                     value={data.court_case_number}
@@ -138,25 +139,28 @@ export default function CasesCreate({
                                             e.target.value,
                                         )
                                     }
-                                    placeholder="2-1234/2026"
+                                    placeholder="2-1001-2611/0457"
                                     className="font-mono"
                                 />
-                                <InputError
-                                    message={errors.court_case_number}
-                                />
-                            </div>
+                            </Field>
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="grid gap-2">
-                                <Label>Toifa</Label>
+                        <div className="grid gap-6 sm:grid-cols-2">
+                            <Field
+                                label="Toifa"
+                                htmlFor="category"
+                                error={errors.category}
+                            >
                                 <Select
                                     value={data.category}
                                     onValueChange={(v) =>
                                         setData("category", v)
                                     }
                                 >
-                                    <SelectTrigger aria-label="Toifa">
+                                    <SelectTrigger
+                                        id="category"
+                                        className="w-full"
+                                    >
                                         <SelectValue placeholder="Toifani tanlang" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -170,12 +174,15 @@ export default function CasesCreate({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <InputError message={errors.category} />
-                            </div>
+                            </Field>
 
                             {is_lawyer && (
-                                <div className="grid gap-2">
-                                    <Label>Mas'ul advokat</Label>
+                                <Field
+                                    label="Mas'ul advokat"
+                                    htmlFor="advocate_id"
+                                    error={errors.advocate_id}
+                                    hint="Ish egasi advokat bo'ladi, siz ishga yurist sifatida qo'shilasiz"
+                                >
                                     <Select
                                         value={data.advocate_id}
                                         onValueChange={(v) =>
@@ -183,7 +190,10 @@ export default function CasesCreate({
                                         }
                                         disabled={noAdvocate}
                                     >
-                                        <SelectTrigger aria-label="Mas'ul advokat">
+                                        <SelectTrigger
+                                            id="advocate_id"
+                                            className="w-full"
+                                        >
                                             <SelectValue placeholder="Advokatni tanlang" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -197,39 +207,32 @@ export default function CasesCreate({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        Ish egasi advokat bo'ladi; siz ishga
-                                        yurist sifatida qo'shilasiz.
-                                    </p>
-                                    <InputError message={errors.advocate_id} />
-                                </div>
+                                </Field>
                             )}
                         </div>
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">Tavsif</Label>
-                            <textarea
+                        <Field
+                            label="Tavsif"
+                            optional
+                            htmlFor="description"
+                            error={errors.description}
+                        >
+                            <Textarea
                                 id="description"
                                 value={data.description}
                                 onChange={(e) =>
                                     setData("description", e.target.value)
                                 }
                                 rows={4}
-                                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 placeholder="Ishning qisqacha mazmuni"
                             />
-                            <InputError message={errors.description} />
-                        </div>
-                    </section>
+                        </Field>
+                    </Section>
 
-                    <section className="space-y-4 rounded-lg border bg-card p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="font-medium">Ish taraflari</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Da'vogar, javobgar va boshqa ishtirokchilar.
-                                </p>
-                            </div>
+                    <Section
+                        title="Ish taraflari"
+                        description="Da'vogar, javobgar va boshqa ishtirokchilar"
+                        actions={
                             <Button
                                 type="button"
                                 variant="outline"
@@ -248,16 +251,19 @@ export default function CasesCreate({
                             >
                                 <Plus /> Taraf qo'shish
                             </Button>
-                        </div>
+                        }
+                        card
+                        contentClassName="flex flex-col gap-4"
+                    >
                         {data.parties.length === 0 && (
-                            <p className="text-sm text-muted-foreground">
-                                Taraflar qo'shilmagan.
+                            <p className="text-sm text-ink-secondary">
+                                Taraflar hali qo'shilmagan
                             </p>
                         )}
                         {data.parties.map((p, i) => (
                             <div
                                 key={i}
-                                className="grid gap-2 sm:grid-cols-[180px_1fr_auto] sm:items-start"
+                                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-start"
                             >
                                 <Select
                                     value={p.role}
@@ -265,7 +271,10 @@ export default function CasesCreate({
                                         setParty(i, { role: v })
                                     }
                                 >
-                                    <SelectTrigger aria-label="Taraf roli">
+                                    <SelectTrigger
+                                        aria-label="Taraf roli"
+                                        className="col-span-2 w-full sm:col-span-1"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -276,7 +285,7 @@ export default function CasesCreate({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <div>
+                                <div className="flex flex-col gap-2">
                                     <Input
                                         value={p.name}
                                         onChange={(e) =>
@@ -294,6 +303,7 @@ export default function CasesCreate({
                                 <Button
                                     type="button"
                                     variant="ghost"
+                                    className="size-11"
                                     size="icon"
                                     aria-label="Tarafni olib tashlash"
                                     onClick={() =>
@@ -309,14 +319,15 @@ export default function CasesCreate({
                                 </Button>
                             </div>
                         ))}
-                    </section>
+                    </Section>
 
-                    <div className="flex justify-end gap-2">
-                        <Button asChild variant="ghost" type="button">
+                    <div className="flex flex-col-reverse gap-2 border-t pt-6 sm:flex-row sm:justify-end">
+                        <Button asChild variant="ghost" size="lg" type="button">
                             <Link href={casesIndex()}>Bekor qilish</Link>
                         </Button>
                         <Button
                             type="submit"
+                            size="lg"
                             disabled={processing || noAdvocate}
                         >
                             Ishni yaratish
@@ -325,6 +336,38 @@ export default function CasesCreate({
                 </form>
             </div>
         </>
+    );
+}
+
+function Field({
+    label,
+    htmlFor,
+    optional = false,
+    hint,
+    error,
+    children,
+}: {
+    label: string;
+    htmlFor: string;
+    optional?: boolean;
+    hint?: string;
+    error?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-2">
+            <Label htmlFor={htmlFor}>
+                {label}
+                {optional && (
+                    <span className="ml-1 font-normal text-ink-muted">
+                        ixtiyoriy
+                    </span>
+                )}
+            </Label>
+            {children}
+            {hint && <p className="text-xs text-ink-secondary">{hint}</p>}
+            <InputError message={error} />
+        </div>
     );
 }
 

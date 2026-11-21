@@ -9,29 +9,35 @@
 <meta charset="utf-8">
 <title>LexLink — Idora javobi #{{ $r->id }}</title>
 <style>
-    @page { margin: 22mm 16mm 22mm 16mm; }
+    /* docs/DESIGN.md: ink neutrals, one state-blue accent, registry numbers in mono chips. DejaVu stays (dompdf + Uzbek glyphs). */
+    @page { margin: 24mm 16mm 22mm 16mm; }
     * { font-family: 'DejaVu Sans', sans-serif; }
-    body { font-size: 10pt; color: #0f1b33; line-height: 1.4; }
+    body { font-size: 9.5pt; color: #111827; line-height: 1.45; }
+    .mono { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.5pt; }
+    .reg { font-family: 'DejaVu Sans Mono', monospace; font-size: 8pt; border: 0.6pt solid #E3E7EE; border-radius: 1.5mm; padding: 0.3mm 1.4mm; color: #111827; white-space: nowrap; }
     .watermark { position: fixed; top: 38%; left: -10%; width: 120%; text-align: center;
-        transform: rotate(-32deg); color: #1e3a6e; opacity: 0.09; font-size: 17pt; font-weight: bold; line-height: 1.5; z-index: -1; }
-    header { position: fixed; top: -16mm; left: 0; right: 0; height: 12mm; border-bottom: 1.5pt solid #12264d; }
-    header .brand { font-size: 12pt; font-weight: bold; color: #12264d; }
-    header .meta { position: absolute; right: 0; top: 2mm; font-size: 8pt; color: #4b5873; text-align: right; }
-    footer { position: fixed; bottom: -16mm; left: 0; right: 0; height: 10mm; border-top: 0.6pt solid #b8c1d3;
-        font-size: 7.5pt; color: #4b5873; padding-top: 2mm; }
-    h1 { font-size: 14pt; margin: 4mm 0 1mm; color: #12264d; }
-    h2 { font-size: 11pt; margin: 6mm 0 2mm; color: #12264d; border-bottom: 0.6pt solid #b8c1d3; padding-bottom: 1mm; }
-    .muted { color: #4b5873; }
-    table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
-    th, td { border: 0.6pt solid #b8c1d3; padding: 1.6mm 2mm; text-align: left; vertical-align: top; font-size: 9pt; }
-    th { background: #eef2f8; color: #12264d; font-weight: bold; }
+        transform: rotate(-32deg); color: #0A5BD8; opacity: 0.07; font-size: 16pt; font-weight: bold; line-height: 1.5; z-index: -1; }
+    header { position: fixed; top: -18mm; left: 0; right: 0; height: 13mm; border-bottom: 0.6pt solid #E3E7EE; }
+    header .inst { font-size: 6.8pt; color: #4B5565; text-transform: uppercase; }
+    header .brand { font-size: 12pt; font-weight: bold; color: #111827; }
+    header .meta { position: absolute; right: 0; top: 1mm; font-size: 7.5pt; color: #4B5565; text-align: right; line-height: 1.5; }
+    footer { position: fixed; bottom: -16mm; left: 0; right: 0; height: 10mm; border-top: 0.6pt solid #E3E7EE;
+        font-size: 7pt; color: #6B7487; padding-top: 2mm; }
+    .rule { height: 0.9mm; background: #0A5BD8; width: 18mm; margin: 2mm 0 3mm; }
+    h1 { font-size: 13pt; margin: 3mm 0 1mm; color: #111827; }
+    h2 { font-size: 10.5pt; margin: 7mm 0 2mm; color: #111827; }
+    .muted { color: #4B5565; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1.5mm; }
+    th, td { border-bottom: 0.6pt solid #E3E7EE; padding: 1.8mm 2mm; text-align: left; vertical-align: top; font-size: 8.5pt; }
+    th { background: #EEF1F6; color: #4B5565; font-weight: normal; border-bottom: 0.6pt solid #D5DBE4; }
     td.num, th.num { text-align: right; }
-    table.kv td:first-child { width: 38%; background: #f6f8fb; color: #4b5873; }
-    .total td { font-weight: bold; background: #f6f8fb; }
+    table.kv td { border-bottom: 0.6pt solid #E3E7EE; }
+    table.kv td:first-child { width: 36%; color: #4B5565; }
+    .total td { font-weight: bold; background: #F5F7FA; }
     .stamp { margin-top: 10mm; }
-    .stamp td { border: none; padding: 0; font-size: 9pt; }
-    .sigline { border-bottom: 0.6pt solid #0f1b33; width: 60mm; height: 8mm; }
-    .demo { display: inline-block; border: 0.6pt solid #b08d2e; color: #7a5f12; padding: 0.5mm 2mm; font-size: 8pt; }
+    .stamp td { border: none; padding: 0; font-size: 8.5pt; }
+    .sigline { border-bottom: 0.6pt solid #111827; width: 60mm; height: 8mm; }
+    .demo { display: inline-block; border: 0.6pt solid #F2D9A6; background: #FFF6E5; color: #9A5B00; padding: 0.3mm 1.6mm; font-size: 7.5pt; border-radius: 1.5mm; }
 </style>
 </head>
 <body>
@@ -42,8 +48,9 @@
 </div>
 
 <header>
-    <div class="brand">LexLink — Idora javobi (DEMO)</div>
-    <div class="meta">So'rov #{{ $r->id }} · Idora raqami {{ $r->gov_request_id ?? '—' }}<br>Yaratildi: {{ $generatedAt->format('d.m.Y H:i') }}</div>
+    <div class="inst">Advokat so'rovlari yagona axborot tizimi</div>
+    <div class="brand">LexLink <span class="muted" style="font-weight: normal; font-size: 9pt">· Idora javobi (demo)</span></div>
+    <div class="meta">So'rov #{{ $r->id }} · <span class="mono">{{ $r->gov_request_id ?? '—' }}</span><br>Yaratildi: {{ $generatedAt->format('d.m.Y H:i') }}</div>
 </header>
 
 <footer>
@@ -52,15 +59,16 @@
 </footer>
 
 <h1>{{ $r->type->agency() }}: {{ $r->type->label() }} bo'yicha ma'lumotnoma</h1>
-<div class="muted">Idoralararo so'rovga javob <span class="demo">DEMO</span></div>
+<div class="muted">Idoralararo so'rovga javob <span class="demo">demo</span></div>
+<div class="rule"></div>
 
 <h2>So'rov rekvizitlari</h2>
 <table class="kv">
-    <tr><td>Ish</td><td>{{ $r->legalCase->title }}{{ $r->legalCase->court_case_number ? ' ('.$r->legalCase->court_case_number.')' : '' }}</td></tr>
-    <tr><td>Shaxs</td><td>{{ $payload['subject']['full_name'] ?? $r->subject_name ?? '—' }}, JShShIR {{ $payload['subject']['pinfl'] ?? $r->subject_pinfl_masked }}</td></tr>
-    <tr><td>Huquqiy asos</td><td>{{ $r->legalBasis?->type->label() }} № {{ $r->legalBasis?->number }}{{ $r->legalBasis?->court_name ? ', '.$r->legalBasis->court_name : '' }}</td></tr>
-    <tr><td>So'rovchi advokat</td><td>{{ $r->signer?->name }}, litsenziya № {{ $r->signer?->advocateProfile?->license_number }}</td></tr>
-    <tr><td>Imzolangan</td><td>{{ $r->signed_at?->setTimezone('Asia/Tashkent')->format('d.m.Y H:i') }} · ERI (demo) {{ substr((string) $r->signature, 0, 20) }}…</td></tr>
+    <tr><td>Ish</td><td>{{ $r->legalCase->title }}@if ($r->legalCase->court_case_number) <span class="reg">{{ $r->legalCase->court_case_number }}</span>@endif</td></tr>
+    <tr><td>Shaxs</td><td>{{ $payload['subject']['full_name'] ?? $r->subject_name ?? '—' }} · JShShIR <span class="reg">{{ $payload['subject']['pinfl'] ?? $r->subject_pinfl_masked }}</span></td></tr>
+    <tr><td>Huquqiy asos</td><td>{{ $r->legalBasis?->type->label() }} <span class="reg">{{ $r->legalBasis?->number }}</span>{{ $r->legalBasis?->court_name ? ', '.$r->legalBasis->court_name : '' }}</td></tr>
+    <tr><td>So'rovchi advokat</td><td>{{ $r->signer?->name }}, litsenziya <span class="reg">{{ $r->signer?->advocateProfile?->license_number }}</span></td></tr>
+    <tr><td>Imzolangan</td><td>{{ $r->signed_at?->setTimezone('Asia/Tashkent')->format('d.m.Y H:i') }} · ERI (demo) <span class="mono muted">{{ substr((string) $r->signature, 0, 20) }}…</span></td></tr>
     <tr><td>Javob olingan</td><td>{{ $response->received_at?->setTimezone('Asia/Tashkent')->format('d.m.Y H:i') }}</td></tr>
 </table>
 
@@ -192,7 +200,7 @@
     <tr>
         <td style="width: 55%">
             Idora elektron imzosi (demo):<br>
-            <span class="muted" style="font-size: 7.5pt">{{ $response->gov_signature ?? '—' }}</span>
+            <span class="mono muted" style="font-size: 7pt">{{ $response->gov_signature ?? '—' }}</span>
         </td>
         <td>
             Advokat: {{ $r->signer?->name }}<br><br>

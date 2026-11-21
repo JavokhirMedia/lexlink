@@ -3,40 +3,31 @@ import {
     ArrowRight,
     Banknote,
     Building2,
-    Car,
     Check,
     Clock3,
     Eye,
     FileLock2,
-    FileText,
     Gavel,
     Landmark,
     Lightbulb,
     MailX,
-    PenLine,
     Plane,
-    ScanSearch,
     ScrollText,
     ShieldCheck,
     Timer,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LegalBasisChip } from "@/components/brand/legal-basis-chip";
-import { LogoMark } from "@/components/brand/logo";
-import { MaskedPinfl } from "@/components/brand/masked-pinfl";
-import { Money } from "@/components/brand/money";
-import { StatusBadge } from "@/components/brand/status-badge";
+import { formatMoney, Money } from "@/components/brand/money";
+import { RegistryChip } from "@/components/brand/registry-chip";
+import { GirihPattern } from "@/components/landing/girih-pattern";
+import { Container, LandingSection } from "@/components/landing/landing-section";
+import { ResponsePreview } from "@/components/landing/response-preview";
 import { AccessBadge } from "@/components/legal/access-badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { legalMap } from "@/routes";
 import type { LegalMatrix } from "@/types/legal-map";
-
-const DATA_TYPES: { icon: LucideIcon; label: string }[] = [
-    { icon: Gavel, label: "Sud ishlari" },
-    { icon: Banknote, label: "Daromad va ish haqi" },
-    { icon: Building2, label: "Ko'chmas mulk (kadastr)" },
-    { icon: Car, label: "Transport vositalari" },
-];
 
 const PROBLEMS: { icon: LucideIcon; title: string; text: string }[] = [
     {
@@ -46,8 +37,8 @@ const PROBLEMS: { icon: LucideIcon; title: string; text: string }[] = [
     },
     {
         icon: Timer,
-        title: "Haftalab kutish",
-        text: "Javob kelish muddati noma'lum. Sud majlisi yaqinlashadi, dalillar esa hali yo'lda.",
+        title: "Noma'lum kutish",
+        text: "Javob qachon kelishi noma'lum. Sud majlisi yaqinlashadi, dalillar esa hali yo'lda.",
     },
     {
         icon: Eye,
@@ -56,24 +47,20 @@ const PROBLEMS: { icon: LucideIcon; title: string; text: string }[] = [
     },
 ];
 
-const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
+const STEPS: { title: string; text: string }[] = [
     {
-        icon: FileText,
         title: "So'rov loyihasi",
         text: "Ish ichida subyekt, so'rov turi va maqsad ko'rsatiladi. Yurist loyihani tayyorlab qo'yishi mumkin.",
     },
     {
-        icon: ScanSearch,
         title: "Huquqiy asos tekshiruvi",
         text: "Sud qarori yoki advokat orderi reyestr bilan solishtiriladi: subyekt, muddat va ruxsat etilgan turlar.",
     },
     {
-        icon: PenLine,
         title: "Imzo va yuborish",
-        text: "Faol litsenziyali advokat elektron imzo bilan tasdiqlaydi. So'rov idoraga darhol yetkaziladi.",
+        text: "Faol litsenziyali advokat elektron imzo bilan tasdiqlaydi va so'rov tegishli idoraga yuboriladi.",
     },
     {
-        icon: ShieldCheck,
         title: "Javob va audit",
         text: "Javob bitta oynada, shifrlangan holda. Har bir ko'rish va yuklab olish jurnalga yoziladi.",
     },
@@ -82,8 +69,8 @@ const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
 const GUARANTEES: { icon: LucideIcon; title: string; text: string }[] = [
     {
         icon: ShieldCheck,
-        title: "Asos bo'lmasa — so'rov yo'q",
-        text: "Tasdiqlangan, muddati o'tmagan va subyektga mos asos bo'lmasa, yuborish tugmasi ishlamaydi. Soliq siri faqat sud qarori bilan.",
+        title: "Asos bo'lmasa, so'rov yo'q",
+        text: "Tasdiqlangan, muddati o'tmagan va subyektga mos asos bo'lmasa, so'rov yuborilmaydi. Soliq siri faqat sud qarori bilan.",
     },
     {
         icon: FileLock2,
@@ -102,107 +89,55 @@ const GUARANTEES: { icon: LucideIcon; title: string; text: string }[] = [
     },
     {
         icon: Lightbulb,
-        title: "AI — maslahat emas",
-        text: "Yordamchi tahlil F.I.Sh. va JShShIRni yashirib ishlaydi, har bir natija belgilanadi. Yakuniy qaror advokat zimmasida.",
+        title: "AI maslahat bermaydi",
+        text: "Yordamchi F.I.Sh. va JShShIRni yashirib ishlaydi, har bir natija belgilanadi. Yakuniy qaror advokat zimmasida.",
     },
 ];
 
+/** Same values as database/seeders/PlansSeeder.php. */
 const PLANS: {
     name: string;
     audience: string;
     price: number;
+    quota?: string;
     features: string[];
     featured?: boolean;
 }[] = [
     {
         name: "Start",
-        audience: "Tanishish uchun",
+        audience: "Sinab ko'rish uchun",
         price: 0,
         features: [
-            "Ishlar va so'rov loyihalari",
-            "Har bir so'rov uchun alohida to'lov",
+            "Ishlar va hujjatlarni yuritish",
+            "Huquqiy asosni tekshirish",
+            "3 ta AI tahlil",
             "Audit jurnali",
         ],
     },
     {
         name: "Advokat",
-        audience: "Yakka amaliyot",
-        price: 149000,
+        audience: "Yakka tartibdagi advokatlar",
+        price: 149_000,
+        quota: `Oyiga 10 ta so'rov, qo'shimchasi ${formatMoney(15_000)}`,
         featured: true,
         features: [
-            "Oylik so'rovlar paketi",
-            "Huquqiy yordamchi (AI)",
-            "Javoblarni PDF ko'rinishida yuklash",
+            "Yuristlarni jamoaga qo'shish",
+            "AI tahlil va da'vo arizasi loyihasi",
+            "PDF javoblar va audit jurnali",
         ],
     },
     {
         name: "Firma",
-        audience: "Advokatlik byurosi",
-        price: 590000,
+        audience: "Advokatlik firmalari va byurolari",
+        price: 590_000,
+        quota: `Oyiga 60 ta so'rov, qo'shimchasi ${formatMoney(10_000)}`,
         features: [
-            "Advokat va yuristlar jamoasi",
-            "Ish bo'yicha kirish ruxsatlari",
-            "Umumiy audit va hisobotlar",
+            "Cheksiz jamoa a'zolari",
+            "Kengaytirilgan AI tahlil",
+            "Ustuvor texnik yordam",
         ],
     },
 ];
-
-function Container({
-    className,
-    children,
-}: {
-    className?: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div className={cn("mx-auto w-full max-w-content px-4 lg:px-8", className)}>
-            {children}
-        </div>
-    );
-}
-
-function SectionTitle({
-    kicker,
-    title,
-    text,
-    inverted = false,
-}: {
-    kicker: string;
-    title: string;
-    text?: string;
-    inverted?: boolean;
-}) {
-    return (
-        <div className="max-w-2xl">
-            <div
-                className={cn(
-                    "text-sm font-medium",
-                    inverted ? "text-sidebar-primary" : "text-gold",
-                )}
-            >
-                {kicker}
-            </div>
-            <h2
-                className={cn(
-                    "mt-2 text-[30px] leading-tight font-semibold sm:text-[34px]",
-                    inverted ? "text-white" : "text-foreground",
-                )}
-            >
-                {title}
-            </h2>
-            {text && (
-                <p
-                    className={cn(
-                        "mt-3 text-[15px] leading-relaxed",
-                        inverted ? "text-white/70" : "text-muted-foreground",
-                    )}
-                >
-                    {text}
-                </p>
-            )}
-        </div>
-    );
-}
 
 const DOMAIN_ICONS: Record<string, LucideIcon> = {
     court: Gavel,
@@ -212,52 +147,146 @@ const DOMAIN_ICONS: Record<string, LucideIcon> = {
     border: Plane,
 };
 
+function Hero({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }) {
+    return (
+        <section className="relative isolate overflow-hidden border-b border-hairline bg-page">
+            {/* Girih lattice, limited to the hero and faded away from the headline */}
+            <GirihPattern className="absolute inset-0 -z-10 size-full [mask-image:linear-gradient(to_bottom,#000_55%,transparent)] lg:[mask-image:linear-gradient(to_right,transparent_30%,#000_60%)]" />
+            <Container className="grid items-center gap-12 py-12 lg:min-h-[min(calc(100svh-108px),760px)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:py-20">
+                <div className="flex flex-col gap-6">
+                    <h1 className="text-[36px] leading-[1.08] font-semibold text-ink sm:text-[48px] xl:text-[56px]">
+                        Advokat so'rovi — huquqiy asos bilan, bitta oynada
+                    </h1>
+                    <p className="max-w-[36rem] text-lg text-ink-secondary sm:text-xl sm:leading-[30px]">
+                        Sud ishlari, daromad, kadastr va transport bo'yicha
+                        davlat idoralariga advokat orderi yoki sud qarori
+                        asosida so'rov yuboring. Javob shifrlangan holda
+                        keladi, har bir ko'rish auditda qayd etiladi.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <Button asChild size="lg">
+                            <Link href={ctaHref}>
+                                {ctaLabel}
+                                <ArrowRight aria-hidden="true" strokeWidth={1.5} />
+                            </Link>
+                        </Button>
+                        <Button asChild size="lg" variant="outline">
+                            <Link href={legalMap()}>Huquqiy xarita</Link>
+                        </Button>
+                    </div>
+                </div>
+                <ResponsePreview />
+            </Container>
+        </section>
+    );
+}
+
+function Problems() {
+    return (
+        <LandingSection
+            id="muammo"
+            tone="surface"
+            title="Advokat so'rovi bugun qog'ozda yashaydi"
+            description="Qonun advokatga ma'lumot so'rash huquqini beradi. Amalda esa bu huquq xat, muhr va kutish bilan cheklangan."
+        >
+            <div className="grid gap-8 md:grid-cols-3 md:gap-10">
+                {PROBLEMS.map((p) => (
+                    <div
+                        key={p.title}
+                        className="flex flex-col gap-2 border-t border-hairline pt-6"
+                    >
+                        <h3 className="flex items-center gap-2.5 text-lg font-semibold text-ink">
+                            <p.icon
+                                aria-hidden="true"
+                                strokeWidth={1.5}
+                                className="size-[18px] shrink-0 text-ink-secondary"
+                            />
+                            {p.title}
+                        </h3>
+                        <p className="text-base text-ink-secondary">{p.text}</p>
+                    </div>
+                ))}
+            </div>
+        </LandingSection>
+    );
+}
+
+function Steps() {
+    return (
+        <LandingSection
+            id="jarayon"
+            title="To'rt qadam: loyihadan javobgacha"
+            description="Har bir qadam qonuniy tartibni takrorlaydi, faqat qog'ozsiz va kuzatiladigan shaklda."
+        >
+            <ol className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+                {STEPS.map((s, i) => (
+                    <li key={s.title} className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-hairline bg-surface font-mono text-sm text-ink tabular-nums">
+                                {i + 1}
+                            </span>
+                            {i < STEPS.length - 1 && (
+                                <span
+                                    aria-hidden="true"
+                                    className="hidden h-px flex-1 bg-hairline lg:block"
+                                />
+                            )}
+                        </div>
+                        <h3 className="text-lg font-semibold text-ink">{s.title}</h3>
+                        <p className="text-base text-ink-secondary">{s.text}</p>
+                    </li>
+                ))}
+            </ol>
+        </LandingSection>
+    );
+}
+
 /** "Advokat nimalar ola oladi" — 5 domain tiles from App\Support\LegalMatrix. */
 function LegalMapTeaser({ matrix }: { matrix: LegalMatrix }) {
     return (
-        <section
+        <LandingSection
             id="huquqiy-xarita"
-            className="scroll-mt-16 border-b bg-muted/50"
+            tone="surface"
+            title="Advokat nimalar ola oladi"
+            description="Order bilan olinadigan ma'lumotlar va faqat sud qarori bilan beriladigan sir rejimidagi ma'lumotlar, sohalar bo'yicha."
+            actions={
+                <Link
+                    href={legalMap()}
+                    className="focus-ring inline-flex items-center gap-2 rounded-sm text-base font-medium text-brand hover:underline hover:underline-offset-4"
+                >
+                    To'liq huquqiy xarita
+                    <ArrowRight aria-hidden="true" strokeWidth={1.5} className="size-[18px]" />
+                </Link>
+            }
         >
-            <Container className="py-16 sm:py-20">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <SectionTitle
-                        kicker="Huquqiy xarita"
-                        title="Advokat nimalar ola oladi"
-                        text="Advokat so'rovi va orderi bilan olinadigan ma'lumotlar hamda faqat sud qarori bilan beriladigan sir rejimidagi ma'lumotlar — sohalar bo'yicha."
-                    />
-                    <Link
-                        href={legalMap()}
-                        className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                    >
-                        To'liq huquqiy xarita
-                        <ArrowRight className="size-4" />
-                    </Link>
-                </div>
-                <div className="mt-10 grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-5">
-                    {matrix.domains.map((d) => {
+            <div className="flex flex-col gap-4">
+                <div className="grid gap-px overflow-hidden rounded-lg border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-5">
+                    {matrix.domains.map((d, i) => {
                         const Icon = DOMAIN_ICONS[d.key] ?? ScrollText;
 
                         return (
                             <Link
                                 key={d.key}
                                 href={`${legalMap().url}#soha-${d.key}`}
-                                className="group flex flex-col bg-card p-5 transition-colors hover:bg-accent/40"
+                                className={cn(
+                                    "group focus-ring flex flex-col gap-4 bg-surface p-6 transition-colors duration-150 hover:bg-page",
+                                    i === matrix.domains.length - 1 &&
+                                        "sm:col-span-2 lg:col-span-1",
+                                )}
                             >
-                                <Icon className="size-5 text-primary" />
-                                <h3 className="mt-4 text-base font-semibold group-hover:text-primary">
+                                <h3 className="flex items-center gap-2.5 text-base font-semibold text-ink group-hover:text-brand">
+                                    <Icon
+                                        aria-hidden="true"
+                                        strokeWidth={1.5}
+                                        className="size-[18px] shrink-0 text-ink-secondary"
+                                    />
                                     {d.title}
                                 </h3>
-                                <ul className="mt-3 space-y-2.5">
+                                <ul className="flex flex-col gap-4">
                                     {d.types.map((t) => (
-                                        <li key={t.value} className="space-y-1">
-                                            <div className="text-sm leading-snug text-foreground/85">
-                                                {t.label}
-                                            </div>
-                                            <AccessBadge
-                                                access={t.access}
-                                                size="sm"
-                                            />
+                                        <li key={t.value} className="flex flex-col gap-1.5">
+                                            <span className="text-sm text-ink">{t.label}</span>
+                                            <AccessBadge access={t.access} size="sm" />
                                         </li>
                                     ))}
                                 </ul>
@@ -265,112 +294,165 @@ function LegalMapTeaser({ matrix }: { matrix: LegalMatrix }) {
                         );
                     })}
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-2">
-                        <AccessBadge access="order" size="sm" />
-                        Advokatura to'g'risidagi Qonun, 7¹-modda
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                        <AccessBadge access="court" size="sm" />
-                        soliq siri, bank siri, maxsus ma'lumot
-                    </span>
+                <p className="text-meta text-ink-secondary">
+                    Order bilan: Advokatura to'g'risidagi Qonun, 7¹-modda. Sud
+                    qarori bilan: soliq siri, bank siri va maxsus toifadagi
+                    ma'lumotlar.
+                </p>
+            </div>
+        </LandingSection>
+    );
+}
+
+function Guarantees() {
+    return (
+        <section id="kafolatlar" aria-labelledby="kafolatlar-title" className="scroll-mt-header bg-page">
+            <Container className="grid gap-10 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16 lg:py-24">
+                <div className="flex flex-col gap-6 lg:sticky lg:top-[calc(var(--spacing-header)+48px)] lg:self-start">
+                    <div className="flex flex-col gap-3">
+                        <h2
+                            id="kafolatlar-title"
+                            className="text-[26px] leading-[34px] font-semibold text-ink lg:text-[32px] lg:leading-10"
+                        >
+                            Qoidalar interfeysda emas, tizimning o'zida
+                        </h2>
+                        <p className="text-lg text-ink-secondary">
+                            Har bir cheklov serverda tekshiriladi. Tugmani
+                            chetlab o'tib bo'lmaydi.
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-6 shadow-xs">
+                        <span className="text-sm text-ink-secondary">
+                            Asos tekshiruvi natijasi
+                        </span>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <LegalBasisChip state="verified" />
+                                <RegistryChip value="2-1001-2611/0457" kind="decision" />
+                            </div>
+                            <LegalBasisChip state="blocked" />
+                        </div>
+                    </div>
                 </div>
+                <ul className="flex flex-col">
+                    {GUARANTEES.map((g) => (
+                        <li
+                            key={g.title}
+                            className="grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-hairline py-6 first:border-t-0 first:pt-0 last:pb-0"
+                        >
+                            <g.icon
+                                aria-hidden="true"
+                                strokeWidth={1.5}
+                                className="mt-1 size-[18px] text-ink-secondary"
+                            />
+                            <h3 className="text-lg font-semibold text-ink">{g.title}</h3>
+                            <p className="col-start-2 text-base text-ink-secondary">
+                                {g.text}
+                            </p>
+                        </li>
+                    ))}
+                </ul>
             </Container>
         </section>
     );
 }
 
-/** Product preview: a request card as it appears inside LexLink (fictional data). */
-function RequestPreview() {
-    const timeline = [
-        { label: "Loyiha tuzildi", time: "09:12", done: true },
-        { label: "Asos tasdiqlandi", time: "09:12", done: true },
-        { label: "Imzolandi va yuborildi", time: "09:14", done: true },
-        { label: "Javob olindi", time: "09:21", done: true },
-    ];
-
+function Plans() {
     return (
-        <div className="relative">
-            <div className="rounded-lg border bg-card">
-                <div className="flex items-center justify-between gap-3 border-b px-5 py-3.5">
-                    <div>
-                        <div className="text-xs text-muted-foreground">
-                            So'rov № 2026-00418
-                        </div>
-                        <div className="mt-0.5 text-sm font-semibold">
-                            Daromad to'g'risida ma'lumot
-                        </div>
-                    </div>
-                    <StatusBadge status="completed" />
-                </div>
-
-                <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2.5 px-5 py-4 text-sm">
-                    <dt className="text-muted-foreground">Ish</dt>
-                    <dd className="truncate">Aliment undirish to'g'risida</dd>
-                    <dt className="text-muted-foreground">Subyekt</dt>
-                    <dd>
-                        <MaskedPinfl value="3***********07" />
-                    </dd>
-                    <dt className="text-muted-foreground">Idora</dt>
-                    <dd>Soliq qo'mitasi</dd>
-                    <dt className="text-muted-foreground">Asos</dt>
-                    <dd>
-                        <LegalBasisChip
-                            state="verified"
-                            size="sm"
-                            detail="Sud qarori 2-1104/2026"
-                        />
-                    </dd>
-                </dl>
-
-                <ol className="border-t px-5 py-4">
-                    {timeline.map((step, i) => (
-                        <li
-                            key={step.label}
-                            className="relative flex items-center gap-3 pb-3 last:pb-0"
-                        >
-                            {i < timeline.length - 1 && (
-                                <span
-                                    aria-hidden="true"
-                                    className="absolute top-5 left-[9px] h-[calc(100%-12px)] w-px bg-success-border"
-                                />
+        <LandingSection
+            id="tariflar"
+            tone="surface"
+            title="Javob hech qachon pullik devor ortida emas"
+            description="Javobni ko'rish uchun pul olinmaydi. To'lov so'rov yuborilganda olinadi, idora rad etsa yoki texnik xato bo'lsa mablag' qaytariladi."
+        >
+            <div className="flex flex-col gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                    {PLANS.map((plan) => (
+                        <div
+                            key={plan.name}
+                            className={cn(
+                                "flex flex-col gap-6 rounded-lg border bg-surface p-6",
+                                plan.featured
+                                    ? "border-brand shadow-xs"
+                                    : "border-hairline",
                             )}
-                            <span className="relative flex size-[19px] items-center justify-center rounded-full border border-success-border bg-success-soft text-success">
-                                <Check className="size-3" strokeWidth={3} />
-                            </span>
-                            <span className="flex-1 text-sm">{step.label}</span>
-                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {step.time}
-                            </span>
-                        </li>
+                        >
+                            <div className="flex flex-col gap-1">
+                                <h3 className="text-xl font-semibold text-ink">
+                                    {plan.name}
+                                </h3>
+                                <span className="text-sm text-ink-secondary">
+                                    {plan.audience}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-baseline gap-2">
+                                    {plan.price === 0 ? (
+                                        <span className="text-[32px] leading-10 font-semibold text-ink">
+                                            Bepul
+                                        </span>
+                                    ) : (
+                                        <>
+                                            <Money
+                                                amount={plan.price}
+                                                currency={false}
+                                                className="text-[32px] leading-10 font-semibold text-ink"
+                                            />
+                                            <span className="text-base text-ink-secondary">
+                                                so'm / oy
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                                <span className="text-sm text-ink-secondary">
+                                    {plan.quota ?? "Idoraviy so'rovlarsiz"}
+                                </span>
+                            </div>
+                            <ul className="flex flex-col gap-3 border-t border-hairline pt-6">
+                                {plan.features.map((f) => (
+                                    <li key={f} className="flex items-start gap-2.5 text-base text-ink">
+                                        <Check
+                                            aria-hidden="true"
+                                            strokeWidth={1.5}
+                                            className="mt-[3px] size-[18px] shrink-0 text-ink-secondary"
+                                        />
+                                        {f}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     ))}
-                </ol>
-
-                <div className="flex items-center justify-between gap-3 border-t bg-muted/60 px-5 py-3 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                        <Eye className="size-3.5" />3 ta ko'rish auditda qayd
-                        etildi
-                    </span>
-                    <Money amount={25000} className="text-foreground" />
                 </div>
+                <p className="text-meta text-ink-secondary">
+                    To'lov Click yoki Payme orqali, demo rejimda simulyatsiya
+                    qilinadi
+                </p>
             </div>
+        </LandingSection>
+    );
+}
 
-            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-danger-border bg-card px-4 py-3 sm:absolute sm:-bottom-8 sm:-left-10 sm:mt-0 sm:w-[300px]">
-                <div className="min-w-0">
-                    <div className="text-xs text-muted-foreground">
-                        Ko'chmas mulk so'rovi
-                    </div>
-                    <LegalBasisChip
-                        state="blocked"
-                        size="sm"
-                        className="mt-1"
-                    />
+function FinalCta({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }) {
+    return (
+        <section className="bg-brand-soft">
+            <Container className="flex flex-col items-start justify-between gap-6 py-12 sm:flex-row sm:items-center lg:py-16">
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-2xl font-semibold text-ink">
+                        Birinchi so'rovni bugun yuboring
+                    </h2>
+                    <p className="text-base text-ink-secondary">
+                        OneID orqali kiring, litsenziyangiz reyestrdan
+                        avtomatik tekshiriladi
+                    </p>
                 </div>
-                <span className="shrink-0 font-mono text-xs text-danger">
-                    422
-                </span>
-            </div>
-        </div>
+                <Button asChild size="lg" className="shrink-0">
+                    <Link href={ctaHref}>
+                        {ctaLabel}
+                        <ArrowRight aria-hidden="true" strokeWidth={1.5} />
+                    </Link>
+                </Button>
+            </Container>
+        </section>
     );
 }
 
@@ -383,276 +465,13 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
     return (
         <>
             <Head title="Advokat so'rovlari platformasi" />
-            <div className="bg-background text-foreground">
-
-                <div>
-                    {/* Hero */}
-                    <section className="border-b">
-                        <Container className="grid gap-14 py-16 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
-                            <div>
-                                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="size-1.5 rounded-full bg-gold" />
-                                    Advokatlar va yuristlar uchun
-                                </div>
-                                <h1 className="mt-5 text-[40px] leading-[1.08] font-semibold tracking-tight text-foreground sm:text-[52px]">
-                                    Davlat ma'lumotlariga huquqiy asos bilan —{" "}
-                                    <span className="text-primary">
-                                        bitta oynada
-                                    </span>
-                                </h1>
-                                <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-muted-foreground">
-                                    Sud ishlari, daromad, kadastr va transport
-                                    bo'yicha so'rovlarni qonuniy asos bilan
-                                    yuboring. Javob daqiqalarda keladi,
-                                    shifrlangan holda saqlanadi, har bir ko'rish
-                                    esa auditda.
-                                </p>
-                                <div className="mt-8 flex flex-wrap items-center gap-3">
-                                    <Link
-                                        href={ctaHref}
-                                        className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-5 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                                    >
-                                        {ctaLabel}
-                                        <ArrowRight className="size-4" />
-                                    </Link>
-                                    <a
-                                        href="#jarayon"
-                                        className="inline-flex h-11 items-center rounded-md border px-5 text-[15px] font-medium transition-colors hover:bg-accent"
-                                    >
-                                        Qanday ishlaydi
-                                    </a>
-                                </div>
-                                <ul className="mt-10 grid max-w-xl grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4 sm:gap-x-4">
-                                    {DATA_TYPES.map((t) => (
-                                        <li
-                                            key={t.label}
-                                            className="flex items-start gap-2 text-foreground/80"
-                                        >
-                                            <t.icon className="mt-0.5 size-4 shrink-0 text-primary" />
-                                            <span className="leading-snug">
-                                                {t.label}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                            <div className="lg:pl-6">
-                                <RequestPreview />
-                            </div>
-                        </Container>
-                    </section>
-
-                    {/* Problem */}
-                    <section
-                        id="muammo"
-                        className="scroll-mt-16 border-b bg-muted/50"
-                    >
-                        <Container className="py-16 sm:py-20">
-                            <SectionTitle
-                                kicker="Muammo"
-                                title="Advokat so'rovi bugun qog'ozda yashaydi"
-                                text="Qonun advokatga ma'lumot so'rash huquqini beradi. Amalda esa bu huquq xat, muhr va kutish bilan cheklangan."
-                            />
-                            <div className="mt-10 grid gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-3">
-                                {PROBLEMS.map((p) => (
-                                    <div key={p.title} className="bg-card p-6">
-                                        <p.icon className="size-5 text-danger" />
-                                        <h3 className="mt-4 text-base font-semibold">
-                                            {p.title}
-                                        </h3>
-                                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                            {p.text}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </Container>
-                    </section>
-
-                    {/* How it works */}
-                    <section id="jarayon" className="scroll-mt-16 border-b">
-                        <Container className="py-16 sm:py-20">
-                            <SectionTitle
-                                kicker="Qanday ishlaydi"
-                                title="To'rt qadam: loyihadan javobgacha"
-                                text="Har bir qadam qonuniy tartibni takrorlaydi — faqat qog'ozsiz va kuzatiladigan shaklda."
-                            />
-                            <ol className="mt-12 grid gap-8 md:grid-cols-4 md:gap-6">
-                                {STEPS.map((s, i) => (
-                                    <li key={s.title} className="relative">
-                                        <div className="flex items-center gap-3">
-                                            <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-navy-soft text-primary">
-                                                <s.icon className="size-5" />
-                                            </span>
-                                            {i < STEPS.length - 1 && (
-                                                <span
-                                                    aria-hidden="true"
-                                                    className="hidden h-px flex-1 bg-border md:block"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="mt-4 font-mono text-xs text-muted-foreground">
-                                            0{i + 1}
-                                        </div>
-                                        <h3 className="mt-1 text-base font-semibold">
-                                            {s.title}
-                                        </h3>
-                                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                            {s.text}
-                                        </p>
-                                    </li>
-                                ))}
-                            </ol>
-                        </Container>
-                    </section>
-
-                    {/* What an advocate can obtain (LegalMatrix) */}
-                    {matrix && <LegalMapTeaser matrix={matrix} />}
-
-                    {/* Guarantees */}
-                    <section
-                        id="kafolatlar"
-                        className="relative scroll-mt-16 overflow-hidden bg-ink text-white"
-                    >
-                        <LogoMark
-                            aria-hidden="true"
-                            accent="var(--sidebar-primary)"
-                            className="pointer-events-none absolute -top-40 -right-40 size-[520px] text-white/[0.04]"
-                        />
-                        <Container className="relative py-16 sm:py-20">
-                            <SectionTitle
-                                inverted
-                                kicker="Huquqiy kafolatlar"
-                                title="Qoidalar interfeysda emas, tizimning o'zida"
-                                text="Har bir cheklov serverda tekshiriladi. Tugmani chetlab o'tib bo'lmaydi."
-                            />
-                            <div className="mt-12 grid gap-px overflow-hidden rounded-lg border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
-                                {GUARANTEES.map((g) => (
-                                    <div
-                                        key={g.title}
-                                        className="bg-ink p-6"
-                                    >
-                                        <g.icon className="size-5 text-sidebar-primary" />
-                                        <h3 className="mt-4 text-base font-semibold text-white">
-                                            {g.title}
-                                        </h3>
-                                        <p className="mt-2 text-sm leading-relaxed text-white/65">
-                                            {g.text}
-                                        </p>
-                                    </div>
-                                ))}
-                                <div className="flex flex-col justify-between bg-ink p-6">
-                                    <div className="text-sm text-white/65">
-                                        Asos tekshiruvi natijasi
-                                    </div>
-                                    <div className="mt-4 flex flex-col gap-2">
-                                        <LegalBasisChip
-                                            state="verified"
-                                            detail="Sud qarori"
-                                        />
-                                        <LegalBasisChip state="blocked" />
-                                    </div>
-                                </div>
-                            </div>
-                        </Container>
-                    </section>
-
-                    {/* Tariffs */}
-                    <section id="tariflar" className="scroll-mt-16 border-b">
-                        <Container className="py-16 sm:py-20">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                                <SectionTitle
-                                    kicker="Tariflar"
-                                    title="Javob hech qachon pullik devor ortida emas"
-                                    text="To'lov so'rov yuborilganda olinadi. Idora rad etsa yoki texnik xato bo'lsa — mablag' qaytariladi."
-                                />
-                            </div>
-                            <div className="mt-10 grid gap-4 md:grid-cols-3">
-                                {PLANS.map((plan) => (
-                                    <div
-                                        key={plan.name}
-                                        className={cn(
-                                            "flex flex-col rounded-lg border bg-card p-6",
-                                            plan.featured &&
-                                                "border-primary ring-1 ring-primary",
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-lg font-semibold">
-                                                {plan.name}
-                                            </h3>
-                                            {plan.featured && (
-                                                <span className="rounded-sm bg-navy-soft px-1.5 py-0.5 text-xs font-medium text-navy">
-                                                    Ko'p tanlanadi
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="mt-1 text-sm text-muted-foreground">
-                                            {plan.audience}
-                                        </div>
-                                        <div className="mt-6 flex items-baseline gap-1.5">
-                                            {plan.price === 0 ? (
-                                                <span className="text-3xl font-semibold tracking-tight">
-                                                    Bepul
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <Money
-                                                        amount={plan.price}
-                                                        currency={false}
-                                                        className="text-3xl font-semibold tracking-tight"
-                                                    />
-                                                    <span className="text-sm text-muted-foreground">
-                                                        so'm / oy
-                                                    </span>
-                                                </>
-                                            )}
-                                        </div>
-                                        <ul className="mt-6 space-y-2.5 border-t pt-5 text-sm">
-                                            {plan.features.map((f) => (
-                                                <li
-                                                    key={f}
-                                                    className="flex items-start gap-2"
-                                                >
-                                                    <Check className="mt-0.5 size-4 shrink-0 text-success" />
-                                                    {f}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="mt-4 text-xs text-muted-foreground">
-                                To'lov Click yoki Payme orqali (demo rejimda
-                                simulyatsiya qilinadi).
-                            </p>
-                        </Container>
-                    </section>
-
-                    {/* CTA */}
-                    <section>
-                        <Container className="flex flex-col items-start justify-between gap-6 py-14 sm:flex-row sm:items-center">
-                            <div>
-                                <h2 className="text-2xl font-semibold">
-                                    Birinchi so'rovni bugun yuboring
-                                </h2>
-                                <p className="mt-2 text-sm text-muted-foreground">
-                                    OneID orqali kiring, litsenziyangiz
-                                    avtomatik tekshiriladi.
-                                </p>
-                            </div>
-                            <Link
-                                href={ctaHref}
-                                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md bg-primary px-5 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                            >
-                                {ctaLabel}
-                                <ArrowRight className="size-4" />
-                            </Link>
-                        </Container>
-                    </section>
-                </div>
-
-            </div>
+            <Hero ctaHref={ctaHref} ctaLabel={ctaLabel} />
+            <Problems />
+            <Steps />
+            {matrix && <LegalMapTeaser matrix={matrix} />}
+            <Guarantees />
+            <Plans />
+            <FinalCta ctaHref={ctaHref} ctaLabel={ctaLabel} />
         </>
     );
 }

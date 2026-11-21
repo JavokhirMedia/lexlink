@@ -63,7 +63,7 @@ class InviteController extends Controller
             ], user: $user);
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Siz advokat jamoasiga qo\'shildingiz.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Siz advokat jamoasiga qo\'shildingiz']);
 
         return to_route('team.index');
     }

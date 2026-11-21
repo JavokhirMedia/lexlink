@@ -1,8 +1,10 @@
 import { Head, Link, router } from "@inertiajs/react";
-import { Briefcase, Plus, Search, Users } from "lucide-react";
+import { Briefcase, ChevronRight, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/brand/empty-state";
+import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -37,17 +39,34 @@ const STATUS_ORDER: DataRequestStatus[] = [
     "failed",
 ];
 
-const requestStatusTone: Record<DataRequestStatus, string> = {
-    draft: "bg-muted text-muted-foreground",
-    awaiting_signature:
-        "bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300",
-    submitted: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-300",
-    processing: "bg-sky-100 text-sky-900 dark:bg-sky-500/15 dark:text-sky-300",
-    completed:
-        "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-300",
-    rejected: "bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-300",
-    failed: "bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-300",
+/** A small dot carries the status tone; the count stays quiet text. */
+const DOT: Record<DataRequestStatus, string> = {
+    draft: "bg-ink-muted",
+    awaiting_signature: "bg-warning",
+    submitted: "bg-brand",
+    processing: "bg-brand",
+    completed: "bg-success",
+    rejected: "bg-danger",
+    failed: "bg-danger",
 };
+
+const STATUS_FILTERS = [
+    { value: null, label: "Barchasi" },
+    { value: "active", label: "Faol" },
+    { value: "closed", label: "Yopilgan" },
+] as const;
+
+/** "Rustamova Dilnoza Akmalovna" -> "Rustamova D. A." */
+const shortName = (name: string) => {
+    const [last, ...rest] = name.trim().split(/\s+/);
+
+    return rest.length
+        ? `${last} ${rest.map((p) => `${p[0]}.`).join(" ")}`
+        : last;
+};
+
+const GRID =
+    "lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_176px_minmax(0,1.2fr)_minmax(0,1.5fr)_16px] lg:items-center lg:gap-6";
 
 export default function CasesIndex({
     cases,
@@ -79,163 +98,214 @@ export default function CasesIndex({
         <>
             <Head title="Ishlar" />
             <div className="flex w-full flex-col gap-8">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            Ishlar
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Siz a'zo bo'lgan ishlar, huquqiy asoslar va
-                            idoralarga so'rovlar.
-                        </p>
-                    </div>
-                    {can_create && (
-                        <Button asChild>
-                            <Link href={casesCreate()}>
-                                <Plus /> Yangi ish
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <form onSubmit={onSubmit} className="relative flex-1">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Ish nomi, mijoz yoki sud ishi raqami bo'yicha qidirish"
-                            className="pl-9"
-                            aria-label="Qidirish"
-                        />
-                    </form>
-                    <div
-                        className="flex gap-1 rounded-md border p-1"
-                        role="tablist"
-                        aria-label="Holat"
-                    >
-                        {[
-                            { value: null, label: "Barchasi" },
-                            { value: "active", label: "Faol" },
-                            { value: "closed", label: "Yopilgan" },
-                        ].map((o) => (
-                            <button
-                                key={o.label}
-                                type="button"
-                                role="tab"
-                                aria-selected={filters.status === o.value}
-                                onClick={() => apply({ status: o.value })}
-                                className={cn(
-                                    "rounded px-3 py-1 text-sm transition-colors",
-                                    (filters.status ?? null) === o.value
-                                        ? "bg-primary text-primary-foreground"
-                                        : "text-muted-foreground hover:text-foreground",
-                                )}
-                            >
-                                {o.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {cases.length === 0 ? (
-                    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center">
-                        <Briefcase className="size-8 text-muted-foreground" />
-                        <div>
-                            <p className="font-medium">Ishlar topilmadi</p>
-                            <p className="text-sm text-muted-foreground">
-                                {filters.search
-                                    ? "Qidiruv bo'yicha mos ish yo'q."
-                                    : "Birinchi ishni yarating — so'ng huquqiy asos qo'shib, idoralarga so'rov yuborasiz."}
-                            </p>
-                        </div>
-                        {can_create && !filters.search && (
-                            <Button asChild variant="outline">
+                <PageHeader
+                    title="Ishlar"
+                    description="Siz a'zo bo'lgan ishlar, ularning huquqiy asoslari va idoralarga so'rovlari"
+                    actions={
+                        can_create && (
+                            <Button asChild>
                                 <Link href={casesCreate()}>
                                     <Plus /> Yangi ish
                                 </Link>
                             </Button>
-                        )}
-                    </div>
-                ) : (
-                    <ul className="divide-y rounded-lg border bg-card">
-                        {cases.map((c) => {
-                            const counts = STATUS_ORDER.filter(
-                                (s) => (c.request_counts[s] ?? 0) > 0,
-                            );
+                        )
+                    }
+                />
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <form
+                        onSubmit={onSubmit}
+                        className="relative flex-1"
+                        role="search"
+                    >
+                        <Search
+                            className="pointer-events-none absolute top-1/2 left-3 size-[18px] -translate-y-1/2 text-ink-muted"
+                            strokeWidth={1.5}
+                            aria-hidden
+                        />
+                        <Input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Ish nomi, mijoz yoki sud ishi raqami"
+                            className="pl-10"
+                            aria-label="Qidirish"
+                        />
+                    </form>
+                    <div
+                        className="inline-flex h-11 w-fit shrink-0 items-center gap-1 rounded-md bg-raised p-1"
+                        role="radiogroup"
+                        aria-label="Ish holati"
+                    >
+                        {STATUS_FILTERS.map((o) => {
+                            const active = (filters.status ?? null) === o.value;
+
                             return (
-                                <li key={c.id}>
-                                    <Link
-                                        href={casesShow(c.id)}
-                                        className="flex flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/50 md:flex-row md:items-center md:gap-6"
-                                    >
-                                        <div className="min-w-0 flex-1 space-y-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="truncate font-medium">
-                                                    {c.title}
+                                <button
+                                    key={o.label}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={active}
+                                    onClick={() => apply({ status: o.value })}
+                                    className={cn(
+                                        "focus-ring h-9 rounded-sm px-3 text-sm transition-colors",
+                                        active
+                                            ? "bg-surface font-medium text-ink shadow-xs"
+                                            : "text-ink-secondary hover:text-ink",
+                                    )}
+                                >
+                                    {o.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {cases.length === 0 ? (
+                    <EmptyState
+                        icon={Briefcase}
+                        title={
+                            filters.search
+                                ? "Qidiruv bo'yicha mos ish yo'q"
+                                : "Hali ish yo'q"
+                        }
+                        description={
+                            filters.search
+                                ? undefined
+                                : "Ishni yarating, so'ng huquqiy asos qo'shib idoralarga so'rov yuborasiz"
+                        }
+                        action={
+                            can_create && !filters.search ? (
+                                <Button asChild variant="outline">
+                                    <Link href={casesCreate()}>
+                                        <Plus /> Yangi ish
+                                    </Link>
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                        <div
+                            className={cn(
+                                GRID,
+                                "hidden h-10 border-b bg-raised px-6 text-xs font-medium text-ink-secondary",
+                            )}
+                            aria-hidden
+                        >
+                            <span>Ish</span>
+                            <span>Mijoz</span>
+                            <span>Sud ishi raqami</span>
+                            <span>Jamoa</span>
+                            <span>Asoslar va so'rovlar</span>
+                            <span />
+                        </div>
+                        <ul className="divide-y">
+                            {cases.map((c) => {
+                                const counts = STATUS_ORDER.filter(
+                                    (s) => (c.request_counts[s] ?? 0) > 0,
+                                );
+                                const members = c.members
+                                    .map((m) => shortName(m.name))
+                                    .join(", ");
+
+                                return (
+                                    <li key={c.id}>
+                                        <Link
+                                            href={casesShow(c.id)}
+                                            className={cn(
+                                                GRID,
+                                                "focus-ring flex flex-col gap-2 px-4 py-4 transition-colors hover:bg-page sm:px-6",
+                                            )}
+                                        >
+                                            <div className="flex min-w-0 flex-col gap-0.5">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="truncate text-base font-medium text-ink">
+                                                        {c.title}
+                                                    </span>
+                                                    {c.status === "closed" && (
+                                                        <span className="shrink-0 rounded-sm bg-raised px-1.5 text-xs text-ink-secondary">
+                                                            Yopilgan
+                                                        </span>
+                                                    )}
                                                 </span>
-                                                {c.status === "closed" ? (
-                                                    <Badge variant="secondary">
-                                                        Yopilgan
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline">
-                                                        Faol
-                                                    </Badge>
-                                                )}
                                                 {c.category_label && (
-                                                    <span className="text-xs text-muted-foreground">
+                                                    <span className="truncate text-xs text-ink-muted">
                                                         {c.category_label}
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                                                <span>
-                                                    Mijoz: {c.client_name}
+                                            <span className="truncate text-sm text-ink-secondary lg:text-ink">
+                                                <span className="lg:hidden">
+                                                    Mijoz:{" "}
                                                 </span>
-                                                {c.court_case_number && (
-                                                    <span className="font-mono text-xs leading-5">
-                                                        {c.court_case_number}
+                                                {c.client_name}
+                                            </span>
+                                            <span className="flex">
+                                                {c.court_case_number ? (
+                                                    <RegistryChip
+                                                        value={
+                                                            c.court_case_number
+                                                        }
+                                                        kind="case"
+                                                        size="sm"
+                                                    />
+                                                ) : (
+                                                    <span className="hidden text-ink-muted lg:inline">
+                                                        —
                                                     </span>
                                                 )}
-                                                <span className="inline-flex items-center gap-1">
-                                                    <Users className="size-3.5" />
-                                                    {c.members
-                                                        .map((m) => m.name)
-                                                        .join(", ")}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
-                                            <span className="mr-1 text-xs text-muted-foreground">
-                                                Asoslar: {c.bases_count}
                                             </span>
-                                            {counts.length === 0 ? (
-                                                <span className="text-xs text-muted-foreground">
-                                                    So'rov yo'q
+                                            <span
+                                                className="truncate text-sm text-ink-secondary"
+                                                title={c.members
+                                                    .map((m) => m.name)
+                                                    .join(", ")}
+                                            >
+                                                {members}
+                                            </span>
+                                            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-secondary tabular-nums">
+                                                <span>
+                                                    {c.bases_count} asos
                                                 </span>
-                                            ) : (
-                                                counts.map((s) => (
-                                                    <span
-                                                        key={s}
-                                                        className={cn(
-                                                            "rounded px-2 py-0.5 text-xs font-medium tabular-nums",
-                                                            requestStatusTone[
-                                                                s
-                                                            ],
-                                                        )}
-                                                    >
-                                                        {status_labels[s]}:{" "}
-                                                        {c.request_counts[s]}
+                                                {counts.length === 0 ? (
+                                                    <span className="text-ink-muted">
+                                                        so'rov yo'q
                                                     </span>
-                                                ))
-                                            )}
-                                        </div>
-                                    </Link>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                                                ) : (
+                                                    counts.map((s) => (
+                                                        <span
+                                                            key={s}
+                                                            className="inline-flex items-center gap-1.5"
+                                                        >
+                                                            <span
+                                                                className={cn(
+                                                                    "size-1.5 rounded-full",
+                                                                    DOT[s],
+                                                                )}
+                                                                aria-hidden
+                                                            />
+                                                            {status_labels[s]}{" "}
+                                                            {
+                                                                c
+                                                                    .request_counts[
+                                                                    s
+                                                                ]
+                                                            }
+                                                        </span>
+                                                    ))
+                                                )}
+                                            </span>
+                                            <ChevronRight
+                                                className="hidden size-4 text-ink-muted lg:block"
+                                                strokeWidth={1.5}
+                                                aria-hidden
+                                            />
+                                        </Link>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
                 )}
             </div>
         </>

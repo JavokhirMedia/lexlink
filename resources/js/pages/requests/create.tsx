@@ -1,20 +1,22 @@
 import { Head, Link, useForm } from "@inertiajs/react";
 import {
+    Check,
     ExternalLink,
     FileText,
-    Landmark,
-    ListChecks,
+    History,
     PenLine,
     Save,
     Send,
-    Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { MaskedPinfl } from "@/components/brand/masked-pinfl";
 import { formatMoney } from "@/components/brand/money";
 import { PageHeader } from "@/components/brand/page-header";
-import { AccessBadge } from "@/components/legal/access-badge";
+import { RegistryChip } from "@/components/brand/registry-chip";
+import { Section } from "@/components/brand/section";
 import InputError from "@/components/input-error";
+import { ACCESS_LABELS } from "@/components/legal/access-badge";
 import { BasisCheckPanel } from "@/components/requests/basis-check-panel";
 import { jsonRequest } from "@/components/requests/http";
 import { REQUEST_TYPE_ICONS } from "@/components/requests/request-type-icon";
@@ -23,23 +25,12 @@ import type {
     Quote,
     RequestTypeOption,
 } from "@/components/requests/types";
-import { textareaClass } from "@/components/requests/types";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { index as casesIndex, show as caseShow } from "@/routes/cases";
 import {
@@ -274,14 +265,17 @@ export default function RequestCreate({
               ? "Huquqiy asos tekshirilmagan"
               : null;
     const textMissing = !data.request_text.trim() || !data.purpose.trim();
+    const sendHint = can_sign
+        ? (blockedReason ??
+          (textMissing ? "So'rov maqsadi va matnini kiriting" : null))
+        : textMissing
+          ? "So'rov maqsadi va matnini kiriting"
+          : null;
 
     return (
         <>
             <Head title="Yangi so'rov" />
-            <form
-                onSubmit={submit("draft")}
-                className="flex flex-col gap-8"
-            >
+            <form onSubmit={submit("draft")} className="flex flex-col gap-8">
                 <PageHeader
                     title="Yangi so'rov"
                     description={
@@ -289,161 +283,118 @@ export default function RequestCreate({
                             Ish:{" "}
                             <Link
                                 href={caseShow.url(legalCase.id)}
-                                className="font-medium text-foreground hover:underline"
+                                className="focus-ring rounded-xs text-ink underline-offset-4 hover:underline"
                             >
                                 {legalCase.title}
                             </Link>
-                            {legalCase.court_case_number
-                                ? ` · ${legalCase.court_case_number}`
-                                : ""}
                         </>
+                    }
+                    meta={
+                        legalCase.court_case_number ? (
+                            <RegistryChip
+                                value={legalCase.court_case_number}
+                                kind="case"
+                            />
+                        ) : undefined
                     }
                 />
 
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-                    <div className="space-y-6">
+                <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="flex min-w-0 flex-col gap-10">
                         {/* 1. Type */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>1. Ma'lumot turi</CardTitle>
-                                <CardDescription>
-                                    Har bir tur uchun maxfiylik rejimi va qabul
-                                    qilinadigan asos turlicha.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div
-                                    className="space-y-5"
-                                    role="radiogroup"
-                                    aria-label="So'rov turi"
-                                >
-                                    {matrix.domains.map((domain) => (
+                        <Section
+                            title="Ma'lumot turi"
+                            description="Har bir tur uchun maxfiylik rejimi va qabul qilinadigan asos turlicha"
+                            card
+                            contentClassName="flex flex-col gap-8"
+                        >
+                            <div
+                                className="flex flex-col gap-8"
+                                role="radiogroup"
+                                aria-label="So'rov turi"
+                            >
+                                {matrix.domains.map((domain) => {
+                                    const holdsSelected = domain.types.some(
+                                        (t) => t.value === data.type,
+                                    );
+
+                                    return (
                                         <section
                                             key={domain.key}
-                                            className="space-y-2"
+                                            className="flex flex-col gap-3"
                                             aria-labelledby={`domain-${domain.key}`}
                                         >
-                                            <div>
+                                            <div className="flex flex-col gap-0.5">
                                                 <h3
                                                     id={`domain-${domain.key}`}
-                                                    className="text-sm font-semibold"
+                                                    className="text-base font-medium text-ink"
                                                 >
                                                     {domain.title}
                                                 </h3>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="text-xs text-ink-secondary">
                                                     {domain.summary}
                                                 </p>
                                             </div>
                                             <div className="grid gap-3 sm:grid-cols-2">
-                                                {domain.types.map((t) => {
-                                                    const Icon =
-                                                        REQUEST_TYPE_ICONS[
+                                                {domain.types.map((t) => (
+                                                    <TypeCard
+                                                        key={t.value}
+                                                        type={t}
+                                                        active={
+                                                            data.type ===
                                                             t.value
-                                                        ];
-                                                    const active =
-                                                        data.type === t.value;
-
-                                                    return (
-                                                        <button
-                                                            key={t.value}
-                                                            type="button"
-                                                            role="radio"
-                                                            aria-checked={
-                                                                active
-                                                            }
-                                                            onClick={() =>
-                                                                selectType(
-                                                                    t.value,
-                                                                )
-                                                            }
-                                                            className={cn(
-                                                                "flex items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/50",
-                                                                active &&
-                                                                    "border-primary bg-primary/5 ring-2 ring-primary/20",
-                                                            )}
-                                                        >
-                                                            <Icon
-                                                                className={cn(
-                                                                    "mt-0.5 size-5 shrink-0",
-                                                                    active
-                                                                        ? "text-primary"
-                                                                        : "text-muted-foreground",
-                                                                )}
-                                                                aria-hidden
-                                                            />
-                                                            <span className="min-w-0 space-y-1">
-                                                                <span className="block text-sm font-medium">
-                                                                    {t.label}
-                                                                </span>
-                                                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                    <Landmark
-                                                                        className="size-3 shrink-0"
-                                                                        aria-hidden
-                                                                    />
-                                                                    {t.agency}
-                                                                </span>
-                                                                <AccessBadge
-                                                                    access={
-                                                                        t.access
-                                                                    }
-                                                                    size="sm"
-                                                                />
-                                                            </span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            {matrixType &&
-                                                domain.types.some(
-                                                    (t) =>
-                                                        t.value === data.type,
-                                                ) && (
-                                                    <WhatYouGet
-                                                        type={matrixType}
-                                                        regime={
-                                                            selectedType?.secrecy_regime
+                                                        }
+                                                        onSelect={() =>
+                                                            selectType(t.value)
                                                         }
                                                     />
-                                                )}
+                                                ))}
+                                            </div>
+                                            {matrixType && holdsSelected && (
+                                                <WhatYouGet
+                                                    type={matrixType}
+                                                    regime={
+                                                        selectedType?.secrecy_regime
+                                                    }
+                                                />
+                                            )}
                                         </section>
-                                    ))}
-                                </div>
-                                <InputError
-                                    message={errs.type}
-                                    className="mt-2"
-                                />
-                            </CardContent>
-                        </Card>
+                                    );
+                                })}
+                            </div>
+                            <InputError message={errs.type} />
+                        </Section>
 
                         {/* 2. Subject + params */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>2. Shaxs va parametrlar</CardTitle>
-                                <CardDescription>
-                                    Shaxs huquqiy asosdagi shaxs bilan bir xil
-                                    bo'lishi shart.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    {subjects.map((s) => (
+                        <Section
+                            title="Shaxs va davr"
+                            description="Shaxs huquqiy asosdagi shaxs bilan bir xil bo'lishi shart"
+                            card
+                            contentClassName="flex flex-col gap-6"
+                        >
+                            <div
+                                className="flex flex-col gap-2"
+                                role="radiogroup"
+                                aria-label="So'raladigan shaxs"
+                            >
+                                {subjects.map((s) => {
+                                    const active =
+                                        data.subject_basis_id === s.basis_id;
+
+                                    return (
                                         <label
                                             key={s.basis_id}
                                             className={cn(
-                                                "flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/50",
-                                                data.subject_basis_id ===
-                                                    s.basis_id &&
-                                                    "border-primary bg-primary/5",
+                                                "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border bg-surface px-4 py-3 transition-colors hover:border-ink-muted/50 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand",
+                                                active &&
+                                                    "border-brand bg-brand-soft hover:border-brand",
                                             )}
                                         >
                                             <input
                                                 type="radio"
                                                 name="subject"
-                                                className="accent-primary"
-                                                checked={
-                                                    data.subject_basis_id ===
-                                                    s.basis_id
-                                                }
+                                                className="size-4 shrink-0 accent-brand"
+                                                checked={active}
                                                 onChange={() =>
                                                     setData(
                                                         "subject_basis_id",
@@ -451,217 +402,220 @@ export default function RequestCreate({
                                                     )
                                                 }
                                             />
-                                            <span className="min-w-0 flex-1">
-                                                <span className="block font-medium">
-                                                    {s.name ?? "Nomaʼlum shaxs"}
+                                            <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                                <span className="flex min-w-0 flex-col">
+                                                    <span className="font-medium text-ink">
+                                                        {s.name ??
+                                                            "Nomaʼlum shaxs"}
+                                                    </span>
+                                                    <MaskedPinfl
+                                                        value={s.pinfl_masked}
+                                                        label
+                                                        className="text-sm"
+                                                    />
                                                 </span>
-                                                <span className="block text-xs text-muted-foreground">
-                                                    <span className="font-mono">
-                                                        {s.pinfl_masked}
-                                                    </span>{" "}
-                                                    · {s.basis_type_label} №{" "}
-                                                    {s.basis_number}
+                                                <span className="flex flex-wrap items-center gap-2 text-xs text-ink-secondary">
+                                                    {s.basis_type_label}
+                                                    <RegistryChip
+                                                        value={s.basis_number}
+                                                        size="sm"
+                                                    />
                                                 </span>
                                             </span>
                                         </label>
-                                    ))}
-                                    <label
-                                        className={cn(
-                                            "flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/50",
-                                            manual &&
-                                                "border-primary bg-primary/5",
-                                        )}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="subject"
-                                            className="accent-primary"
-                                            checked={manual}
-                                            onChange={() =>
+                                    );
+                                })}
+                                <label
+                                    className={cn(
+                                        "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border bg-surface px-4 py-3 transition-colors hover:border-ink-muted/50 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand",
+                                        manual &&
+                                            "border-brand bg-brand-soft hover:border-brand",
+                                    )}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="subject"
+                                        className="size-4 shrink-0 accent-brand"
+                                        checked={manual}
+                                        onChange={() =>
+                                            setData("subject_basis_id", null)
+                                        }
+                                    />
+                                    <span className="text-ink">
+                                        JShShIR ni qo'lda kiritish
+                                    </span>
+                                </label>
+                            </div>
+
+                            {manual && (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="subject_pinfl">
+                                            JShShIR
+                                            <span className="ml-1 font-normal text-ink-muted">
+                                                14 raqam
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            id="subject_pinfl"
+                                            inputMode="numeric"
+                                            autoComplete="off"
+                                            maxLength={14}
+                                            className="font-mono tracking-wider"
+                                            value={data.subject_pinfl}
+                                            onChange={(e) =>
                                                 setData(
-                                                    "subject_basis_id",
-                                                    null,
+                                                    "subject_pinfl",
+                                                    e.target.value.replace(
+                                                        /\D/g,
+                                                        "",
+                                                    ),
+                                                )
+                                            }
+                                            aria-invalid={!!errs.subject_pinfl}
+                                        />
+                                        <InputError
+                                            message={errs.subject_pinfl}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="subject_name">
+                                            F.I.Sh.
+                                            <span className="ml-1 font-normal text-ink-muted">
+                                                ixtiyoriy
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            id="subject_name"
+                                            value={data.subject_name}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "subject_name",
+                                                    e.target.value,
                                                 )
                                             }
                                         />
-                                        <span>JShShIR ni qo'lda kiritish</span>
-                                    </label>
-                                </div>
-
-                                {manual && (
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="subject_pinfl">
-                                                JShShIR (14 raqam)
-                                            </Label>
-                                            <Input
-                                                id="subject_pinfl"
-                                                inputMode="numeric"
-                                                autoComplete="off"
-                                                maxLength={14}
-                                                className="font-mono tracking-wider"
-                                                value={data.subject_pinfl}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "subject_pinfl",
-                                                        e.target.value.replace(
-                                                            /\D/g,
-                                                            "",
-                                                        ),
-                                                    )
-                                                }
-                                                aria-invalid={
-                                                    !!errs.subject_pinfl
-                                                }
-                                            />
-                                            <InputError
-                                                message={errs.subject_pinfl}
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="subject_name">
-                                                F.I.Sh. (ixtiyoriy)
-                                            </Label>
-                                            <Input
-                                                id="subject_name"
-                                                value={data.subject_name}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "subject_name",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                        </div>
                                     </div>
-                                )}
+                                </div>
+                            )}
 
-                                {PERIOD_TYPES.includes(data.type) &&
-                                    data.type !== "salary" && (
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <input
-                                                type="checkbox"
-                                                className="accent-primary"
-                                                checked={periodOn}
-                                                onChange={(e) =>
-                                                    setPeriodOn(
-                                                        e.target.checked,
-                                                    )
-                                                }
-                                            />
-                                            Davrni cheklash (oylar bo'yicha,
-                                            ixtiyoriy)
+                            {PERIOD_TYPES.includes(data.type) &&
+                                data.type !== "salary" && (
+                                    <div className="flex items-start gap-3">
+                                        <Checkbox
+                                            id="period_on"
+                                            className="mt-0.5"
+                                            checked={periodOn}
+                                            onCheckedChange={(v) =>
+                                                setPeriodOn(v === true)
+                                            }
+                                        />
+                                        <Label
+                                            htmlFor="period_on"
+                                            className="flex flex-col gap-0.5 font-normal"
+                                        >
+                                            <span className="text-ink">
+                                                Davrni oylar bo'yicha cheklash
+                                            </span>
                                             {data.type === "bank_accounts" && (
-                                                <span className="text-xs text-muted-foreground">
-                                                    — aylanma so'nggi 6 oy uchun
+                                                <span className="text-xs text-ink-secondary">
+                                                    Aylanma so'nggi 6 oy uchun
                                                     beriladi
                                                 </span>
                                             )}
-                                        </label>
-                                    )}
-                                {usesPeriod && (
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="period_from">
-                                                Davr boshi
-                                            </Label>
-                                            <Input
-                                                id="period_from"
-                                                type="month"
-                                                value={data.params.period_from}
-                                                onChange={(e) =>
-                                                    setData("params", {
-                                                        ...data.params,
-                                                        period_from:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errs["params.period_from"]
-                                                }
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="period_to">
-                                                Davr oxiri
-                                            </Label>
-                                            <Input
-                                                id="period_to"
-                                                type="month"
-                                                value={data.params.period_to}
-                                                onChange={(e) =>
-                                                    setData("params", {
-                                                        ...data.params,
-                                                        period_to:
-                                                            e.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errs["params.period_to"]
-                                                }
-                                            />
-                                        </div>
+                                        </Label>
                                     </div>
                                 )}
-                                {data.type === "property" && (
-                                    <div className="space-y-1.5 sm:max-w-sm">
-                                        <Label htmlFor="cadastral_number">
-                                            Kadastr raqami (ixtiyoriy)
+                            {usesPeriod && (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="period_from">
+                                            Davr boshi
                                         </Label>
                                         <Input
-                                            id="cadastral_number"
-                                            className="font-mono"
-                                            value={data.params.cadastral_number}
+                                            id="period_from"
+                                            type="month"
+                                            value={data.params.period_from}
                                             onChange={(e) =>
                                                 setData("params", {
                                                     ...data.params,
-                                                    cadastral_number:
-                                                        e.target.value,
+                                                    period_from: e.target.value,
                                                 })
                                             }
                                         />
+                                        <InputError
+                                            message={errs["params.period_from"]}
+                                        />
                                     </div>
-                                )}
-                                {data.type === "court_case" && (
-                                    <div className="space-y-1.5 sm:max-w-sm">
-                                        <Label htmlFor="court_case_number">
-                                            Sud ishi raqami
+                                    <div className="flex flex-col gap-2">
+                                        <Label htmlFor="period_to">
+                                            Davr oxiri
                                         </Label>
                                         <Input
-                                            id="court_case_number"
-                                            className="font-mono"
-                                            value={
-                                                data.params.court_case_number
-                                            }
+                                            id="period_to"
+                                            type="month"
+                                            value={data.params.period_to}
                                             onChange={(e) =>
                                                 setData("params", {
                                                     ...data.params,
-                                                    court_case_number:
-                                                        e.target.value,
+                                                    period_to: e.target.value,
                                                 })
                                             }
                                         />
+                                        <InputError
+                                            message={errs["params.period_to"]}
+                                        />
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </div>
+                            )}
+                            {data.type === "property" && (
+                                <div className="flex flex-col gap-2 sm:max-w-sm">
+                                    <Label htmlFor="cadastral_number">
+                                        Kadastr raqami
+                                        <span className="ml-1 font-normal text-ink-muted">
+                                            ixtiyoriy
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="cadastral_number"
+                                        className="font-mono"
+                                        value={data.params.cadastral_number}
+                                        onChange={(e) =>
+                                            setData("params", {
+                                                ...data.params,
+                                                cadastral_number:
+                                                    e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            )}
+                            {data.type === "court_case" && (
+                                <div className="flex flex-col gap-2 sm:max-w-sm">
+                                    <Label htmlFor="court_case_number">
+                                        Sud ishi raqami
+                                    </Label>
+                                    <Input
+                                        id="court_case_number"
+                                        className="font-mono"
+                                        value={data.params.court_case_number}
+                                        onChange={(e) =>
+                                            setData("params", {
+                                                ...data.params,
+                                                court_case_number:
+                                                    e.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            )}
+                        </Section>
 
                         {/* 3. Purpose + text */}
-                        <Card>
-                            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-1.5">
-                                    <CardTitle>
-                                        3. Maqsad va so'rov matni
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Rasmiy xat idora nomiga, huquqiy asosga
-                                        havola bilan.
-                                    </CardDescription>
-                                </div>
+                        <Section
+                            title="Maqsad va so'rov matni"
+                            description="Rasmiy xat idora nomiga, huquqiy asosga havola bilan"
+                            actions={
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -669,145 +623,137 @@ export default function RequestCreate({
                                     onClick={draftWithAi}
                                     disabled={drafting}
                                 >
-                                    {drafting ? <Spinner /> : <Sparkles />}
-                                    AI yordamida yozish
+                                    {drafting ? <Spinner /> : <FileText />}
+                                    Matn loyihasi (AI)
                                 </Button>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="purpose">
-                                        So'rov maqsadi
-                                    </Label>
-                                    <textarea
-                                        id="purpose"
-                                        rows={2}
-                                        className={textareaClass}
-                                        value={data.purpose}
-                                        onChange={(e) => {
-                                            purposeTouched.current = true;
-                                            setData("purpose", e.target.value);
-                                        }}
-                                        aria-invalid={!!errs.purpose}
-                                    />
-                                    <InputError message={errs.purpose} />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="request_text">
-                                        So'rov matni
-                                    </Label>
-                                    <textarea
-                                        id="request_text"
-                                        rows={14}
-                                        className={cn(
-                                            textareaClass,
-                                            "leading-relaxed",
-                                        )}
-                                        value={data.request_text}
-                                        onChange={(e) =>
-                                            setData(
-                                                "request_text",
-                                                e.target.value,
-                                            )
-                                        }
-                                        placeholder={`${selectedType?.agency ?? "Idora"} rahbariyatiga…`}
-                                        aria-invalid={!!errs.request_text}
-                                    />
-                                    {draftSource && (
-                                        <p className="text-xs text-muted-foreground">
-                                            {draftSource === "ai"
-                                                ? "AI loyihasi — shaxs ma'lumotlari maskalangan holda yuborildi. Bu yuridik maslahat emas — yordamchi tahlil. Yakuniy qaror advokat zimmasida."
-                                                : ai_available
-                                                  ? "AI hozir mavjud emas — rasmiy shablon qo'yildi. Matnni tekshirib, tahrirlang."
-                                                  : "Rasmiy shablon qo'yildi. Matnni tekshirib, tahrirlang."}
-                                        </p>
-                                    )}
-                                    <InputError message={errs.request_text} />
-                                </div>
-                            </CardContent>
-                        </Card>
+                            }
+                            card
+                            contentClassName="flex flex-col gap-6"
+                        >
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="purpose">So'rov maqsadi</Label>
+                                <Textarea
+                                    id="purpose"
+                                    rows={2}
+                                    className="min-h-20"
+                                    value={data.purpose}
+                                    onChange={(e) => {
+                                        purposeTouched.current = true;
+                                        setData("purpose", e.target.value);
+                                    }}
+                                    aria-invalid={!!errs.purpose}
+                                />
+                                <InputError message={errs.purpose} />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Label htmlFor="request_text">
+                                    So'rov matni
+                                </Label>
+                                <Textarea
+                                    id="request_text"
+                                    rows={14}
+                                    value={data.request_text}
+                                    onChange={(e) =>
+                                        setData("request_text", e.target.value)
+                                    }
+                                    placeholder={`${selectedType?.agency ?? "Idora"} rahbariyatiga…`}
+                                    aria-invalid={!!errs.request_text}
+                                />
+                                {draftSource && (
+                                    <p className="text-xs text-ink-secondary">
+                                        {draftSource === "ai"
+                                            ? "AI loyihasi: shaxs ma'lumotlari maskalangan holda yuborildi. Bu yuridik maslahat emas, yordamchi tahlil. Yakuniy qaror advokat zimmasida"
+                                            : ai_available
+                                              ? "AI hozir mavjud emas, rasmiy shablon qo'yildi. Matnni tekshirib, tahrirlang"
+                                              : "Rasmiy shablon qo'yildi. Matnni tekshirib, tahrirlang"}
+                                    </p>
+                                )}
+                                <InputError message={errs.request_text} />
+                            </div>
+                        </Section>
                     </div>
 
-                    {/* Side: basis check + actions */}
-                    <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                    {/* Side: basis check + actions (inline under the form on mobile) */}
+                    <aside className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--spacing-header)+24px)] lg:self-start">
                         <BasisCheckPanel check={check} loading={checking} />
 
-                        <Card>
-                            <CardContent className="space-y-3 pt-6">
-                                <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                        Narxi
-                                    </span>
-                                    <span className="font-medium tabular-nums">
-                                        {quote.from_subscription
-                                            ? "Obuna doirasida"
-                                            : formatMoney(quote.cost)}
-                                    </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    To'lov yuborishda yechiladi; rad etilsa yoki
-                                    texnik xato bo'lsa qaytariladi. Javob uchun
-                                    alohida to'lov yo'q.
-                                </p>
+                        <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs">
+                            <div className="flex items-baseline justify-between gap-4">
+                                <span className="text-sm text-ink-secondary">
+                                    Narxi
+                                </span>
+                                <span className="text-xl leading-7 font-semibold text-ink tabular-nums">
+                                    {quote.from_subscription
+                                        ? "Obuna doirasida"
+                                        : formatMoney(quote.cost)}
+                                </span>
+                            </div>
+                            <p className="-mt-2 text-xs text-ink-muted">
+                                Yuborishda yechiladi, rad etilsa yoki texnik
+                                xato bo'lsa qaytariladi. Javob uchun alohida
+                                to'lov yo'q
+                            </p>
 
+                            <div className="flex flex-col gap-2 border-t pt-4">
                                 {can_sign ? (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span
-                                                className="block"
-                                                tabIndex={
-                                                    blockedReason ? 0 : -1
-                                                }
-                                            >
-                                                <Button
-                                                    type="button"
-                                                    className="w-full"
-                                                    disabled={
-                                                        !!blockedReason ||
-                                                        textMissing ||
-                                                        processing
-                                                    }
-                                                    onClick={() =>
-                                                        submit("submit")()
-                                                    }
-                                                >
-                                                    <Send />
-                                                    Imzolash va yuborish
-                                                </Button>
-                                            </span>
-                                        </TooltipTrigger>
-                                        {(blockedReason || textMissing) && (
-                                            <TooltipContent>
-                                                {blockedReason ??
-                                                    "So'rov maqsadi va matnini kiriting"}
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
+                                    <Button
+                                        type="button"
+                                        size="lg"
+                                        className="w-full"
+                                        disabled={
+                                            !!blockedReason ||
+                                            textMissing ||
+                                            processing
+                                        }
+                                        aria-describedby={
+                                            sendHint ? "send-hint" : undefined
+                                        }
+                                        onClick={() => submit("submit")()}
+                                    >
+                                        <PenLine />
+                                        Imzolash va yuborish
+                                    </Button>
                                 ) : (
                                     <Button
                                         type="button"
+                                        size="lg"
                                         className="w-full"
                                         disabled={textMissing || processing}
+                                        aria-describedby={
+                                            sendHint ? "send-hint" : undefined
+                                        }
                                         onClick={() => submit("signature")()}
                                     >
-                                        <PenLine />
+                                        <Send />
                                         Advokat imzosiga yuborish
                                     </Button>
                                 )}
-                                {can_sign && blockedReason && (
-                                    <p className="text-xs text-danger">
-                                        Yuborish bloklangan: {blockedReason}
+                                {sendHint && (
+                                    <p
+                                        id="send-hint"
+                                        className={cn(
+                                            "text-xs",
+                                            can_sign && blockedReason
+                                                ? "text-danger"
+                                                : "text-ink-secondary",
+                                        )}
+                                    >
+                                        {can_sign && blockedReason
+                                            ? "Asos so'rovni qamramaguncha yuborish bloklangan"
+                                            : sendHint}
                                     </p>
                                 )}
                                 {!can_sign && (
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-xs text-ink-secondary">
                                         So'rovni faqat faol litsenziyali advokat
-                                        ERI bilan imzolaydi va yuboradi.
+                                        ERI bilan imzolaydi va yuboradi
                                     </p>
                                 )}
 
                                 <Button
                                     type="submit"
                                     variant="outline"
+                                    size="lg"
                                     className="w-full"
                                     disabled={processing}
                                 >
@@ -817,21 +763,73 @@ export default function RequestCreate({
                                 <InputError
                                     message={errs.case_id ?? errs.billing}
                                 />
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
-                        <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <FileText
-                                className="mt-0.5 size-3.5 shrink-0"
+                        <p className="flex items-start gap-2 px-1 text-xs text-ink-muted">
+                            <History
+                                className="mt-0.5 size-4 shrink-0"
+                                strokeWidth={1.5}
                                 aria-hidden
                             />
                             Imzolash, yuborish va javobni har bir ochish audit
-                            jurnaliga yoziladi.
+                            jurnaliga yoziladi
                         </p>
                     </aside>
                 </div>
             </form>
         </>
+    );
+}
+
+/** One selectable data type: quiet by default, brand outline + soft fill when selected. */
+function TypeCard({
+    type,
+    active,
+    onSelect,
+}: {
+    type: LegalMatrixType;
+    active: boolean;
+    onSelect: () => void;
+}) {
+    const Icon = REQUEST_TYPE_ICONS[type.value];
+
+    return (
+        <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={onSelect}
+            className={cn(
+                "focus-ring flex items-start gap-3 rounded-lg border bg-surface p-4 text-left transition-colors hover:border-ink-muted/50",
+                active && "border-brand bg-brand-soft hover:border-brand",
+            )}
+        >
+            <span
+                className={cn(
+                    "flex size-9 shrink-0 items-center justify-center rounded-md",
+                    active
+                        ? "bg-surface text-brand"
+                        : "bg-raised text-ink-secondary",
+                )}
+            >
+                <Icon className="size-[18px]" strokeWidth={1.5} aria-hidden />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-base font-medium text-ink">
+                    {type.label}
+                </span>
+                <span className="text-sm text-ink-secondary">
+                    {type.agency}
+                </span>
+                <span
+                    data-access={type.access}
+                    className="mt-1 text-xs text-ink-muted"
+                >
+                    {ACCESS_LABELS[type.access]}
+                </span>
+            </span>
+        </button>
     );
 }
 
@@ -844,48 +842,55 @@ function WhatYouGet({
     regime?: string;
 }) {
     return (
-        <div className="rounded-md border bg-muted/30 p-3 text-sm">
-            <p className="flex items-center gap-1.5 font-medium">
-                <ListChecks className="size-4 text-primary" aria-hidden />
-                Nima olinadi
-            </p>
-            <ul className="mt-1.5 grid gap-x-4 gap-y-0.5 text-xs text-foreground/80 sm:grid-cols-2">
-                {type.items.map((item) => (
-                    <li key={item} className="flex gap-1.5">
-                        <span aria-hidden>·</span>
-                        {item}
-                    </li>
-                ))}
-            </ul>
-            <p className="mt-2 text-xs text-muted-foreground">{type.why}</p>
-            {regime && (
-                <p className="mt-1 text-xs text-foreground/75">{regime}</p>
-            )}
-            <ul className="mt-2 space-y-0.5 text-xs">
+        <div className="flex flex-col gap-4 rounded-lg bg-raised p-5">
+            <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium text-ink">
+                    Nima olinadi: {type.label.toLowerCase()}
+                </p>
+                <ul className="grid gap-x-6 gap-y-1.5 text-sm text-ink sm:grid-cols-2">
+                    {type.items.map((item) => (
+                        <li key={item} className="flex gap-2">
+                            <Check
+                                className="mt-0.5 size-4 shrink-0 text-ink-muted"
+                                strokeWidth={1.5}
+                                aria-hidden
+                            />
+                            {item}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <div className="flex flex-col gap-1 text-sm text-ink-secondary">
+                <p>{type.why}</p>
+                {regime && <p>{regime}</p>}
+            </div>
+            <ul className="flex flex-col gap-1.5 border-t border-hairline pt-3 text-xs">
                 {type.refs.map((ref) => {
                     const title = `${ref.law}${ref.article ? `, ${ref.article}-modda` : ""}`;
 
                     return (
-                        <li key={`${ref.law}-${ref.article}`}>
+                        <li
+                            key={`${ref.law}-${ref.article}`}
+                            className="text-ink-secondary"
+                        >
                             {ref.url ? (
                                 <a
                                     href={ref.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                                    className="focus-ring inline-flex items-center gap-1 rounded-xs text-ink underline decoration-ink-muted/40 underline-offset-4 transition-colors hover:decoration-ink"
                                 >
                                     {title}
                                     <ExternalLink
-                                        className="size-3"
+                                        className="size-3.5 text-ink-muted"
+                                        strokeWidth={1.5}
                                         aria-hidden
                                     />
                                 </a>
                             ) : (
-                                <span className="font-medium">{title}</span>
+                                <span className="text-ink">{title}</span>
                             )}{" "}
-                            <span className="text-muted-foreground">
-                                — {ref.note}
-                            </span>
+                            · {ref.note}
                         </li>
                     );
                 })}

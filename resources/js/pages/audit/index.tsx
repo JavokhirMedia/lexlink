@@ -1,7 +1,10 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { FormEvent, useState } from 'react';
+import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { EmptyState } from '@/components/brand/empty-state';
+import { formatDateTime, formatNumber } from '@/components/brand/money';
 import { PageHeader } from '@/components/brand/page-header';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,10 +15,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { index as auditIndex } from '@/routes/audit';
+import { show as caseShow } from '@/routes/cases';
 import type { AuditEntry } from '@/types';
-import { formatDateTime } from '@/components/brand/money';
 
 type Paginated<T> = {
     data: T[];
@@ -45,12 +56,11 @@ type Props = {
 const ALL = '__all';
 
 const SCOPE_TEXT: Record<Props['scope'], string> = {
-    all: 'Administrator: barcha foydalanuvchilar harakatlari (faqat metama’lumotlar).',
-    advocate: 'Sizning ishlaringiz bo‘yicha barcha harakatlar va shaxsiy harakatlaringiz.',
-    own: 'Faqat sizning harakatlaringiz.',
+    all: 'Administrator: barcha foydalanuvchilar harakatlari, faqat metama’lumotlar',
+    advocate:
+        'Sizning ishlaringiz bo‘yicha barcha harakatlar va shaxsiy harakatlaringiz',
+    own: 'Faqat sizning harakatlaringiz',
 };
-
-const dateTimeFmt = { format: (d: Date) => formatDateTime(d) };
 
 function formatMetaValue(value: unknown): string {
     if (value === null || value === undefined) {
@@ -66,28 +76,41 @@ function formatMetaValue(value: unknown): string {
 
 function Meta({ meta }: { meta: AuditEntry['meta'] }) {
     if (!meta || Object.keys(meta).length === 0) {
-        return <span className="text-muted-foreground">—</span>;
+        return <span className="text-ink-muted">—</span>;
     }
 
     return (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+        <dl className="flex flex-col gap-0.5 font-mono text-meta">
             {Object.entries(meta).map(([k, v]) => (
-                <div key={k} className="contents">
-                    <dt className="text-muted-foreground">{k}</dt>
-                    <dd className="font-mono break-all">{formatMetaValue(v)}</dd>
+                <div key={k} className="flex min-w-0 gap-1.5">
+                    <dt className="shrink-0 text-ink-muted">{k}:</dt>
+                    <dd className="min-w-0 break-all text-ink-secondary">
+                        {formatMetaValue(v)}
+                    </dd>
                 </div>
             ))}
         </dl>
     );
 }
 
-export default function AuditIndex({ entries, filters, actions, cases, scope }: Props) {
+export default function AuditIndex({
+    entries,
+    filters,
+    actions,
+    cases,
+    scope,
+}: Props) {
     const [action, setAction] = useState(filters.action ?? ALL);
     const [caseId, setCaseId] = useState(
         filters.case_id ? String(filters.case_id) : ALL,
     );
     const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
     const [dateTo, setDateTo] = useState(filters.date_to ?? '');
+    const filtered =
+        !!filters.action ||
+        !!filters.case_id ||
+        !!filters.date_from ||
+        !!filters.date_to;
 
     const apply = (e?: FormEvent) => {
         e?.preventDefault();
@@ -113,7 +136,9 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
     };
 
     const caseTitle = (id: number | null) =>
-        id === null ? null : (cases.find((c) => c.id === id)?.title ?? `#${id}`);
+        id === null
+            ? null
+            : (cases.find((c) => c.id === id)?.title ?? `Ish #${id}`);
 
     return (
         <>
@@ -122,14 +147,22 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
                 <PageHeader
                     title="Audit jurnali"
                     description={`O‘zgartirib bo‘lmaydigan harakatlar jurnali. ${SCOPE_TEXT[scope]}`}
+                    meta={
+                        <span className="tabular-nums">
+                            Jami {formatNumber(entries.total)} ta yozuv
+                        </span>
+                    }
                 />
 
                 <form
                     onSubmit={apply}
-                    className="grid gap-3 rounded-lg border p-4 md:grid-cols-5 md:items-end"
+                    aria-label="Jurnal filtrlari"
+                    className="grid gap-4 rounded-lg border bg-card p-4 shadow-xs sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end"
                 >
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="f-action" className="text-xs">Harakat</Label>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="f-action" className="text-sm">
+                            Harakat
+                        </Label>
                         <Select value={action} onValueChange={setAction}>
                             <SelectTrigger id="f-action" className="w-full">
                                 <SelectValue />
@@ -144,8 +177,10 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="f-case" className="text-xs">Ish</Label>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="f-case" className="text-sm">
+                            Ish
+                        </Label>
                         <Select value={caseId} onValueChange={setCaseId}>
                             <SelectTrigger id="f-case" className="w-full">
                                 <SelectValue />
@@ -160,8 +195,10 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="f-from" className="text-xs">Sanadan</Label>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="f-from" className="text-sm">
+                            Sanadan
+                        </Label>
                         <Input
                             id="f-from"
                             type="date"
@@ -169,8 +206,10 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
                             onChange={(e) => setDateFrom(e.target.value)}
                         />
                     </div>
-                    <div className="grid gap-1.5">
-                        <Label htmlFor="f-to" className="text-xs">Sanagacha</Label>
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="f-to" className="text-sm">
+                            Sanagacha
+                        </Label>
                         <Input
                             id="f-to"
                             type="date"
@@ -178,101 +217,175 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
                             onChange={(e) => setDateTo(e.target.value)}
                         />
                     </div>
-                    <div className="flex gap-2">
-                        <Button type="submit" className="flex-1">
+                    <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+                        <Button type="submit" className="flex-1 lg:flex-none">
                             Filtrlash
                         </Button>
-                        <Button type="button" variant="outline" onClick={reset}>
-                            Tozalash
-                        </Button>
+                        {filtered && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={reset}
+                            >
+                                Tozalash
+                            </Button>
+                        )}
                     </div>
                 </form>
 
-                <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-                            <tr>
-                                <th className="px-3 py-2 font-medium">Vaqt</th>
-                                <th className="px-3 py-2 font-medium">Harakat</th>
-                                <th className="px-3 py-2 font-medium">Foydalanuvchi</th>
-                                <th className="px-3 py-2 font-medium">Ish / obyekt</th>
-                                <th className="px-3 py-2 font-medium">Tafsilotlar</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {entries.data.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="px-3 py-8 text-center text-muted-foreground"
-                                    >
-                                        Yozuvlar topilmadi.
-                                    </td>
-                                </tr>
-                            )}
-                            {entries.data.map((e) => (
-                                <tr key={e.id} className="align-top">
-                                    <td className="px-3 py-2 whitespace-nowrap tabular-nums">
-                                        {dateTimeFmt.format(new Date(e.created_at))}
-                                        {e.ip && (
-                                            <div className="text-xs text-muted-foreground">
-                                                {e.ip}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <Badge variant="secondary">{e.action_label}</Badge>
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {e.user?.name ?? (
-                                            <span className="text-muted-foreground">Tizim</span>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2 text-xs">
-                                        {e.case_id !== null && (
-                                            <div className="font-medium">
-                                                {caseTitle(e.case_id)}
-                                            </div>
-                                        )}
-                                        {e.subject_type && (
-                                            <div className="text-muted-foreground">
-                                                {e.subject_type} #{e.subject_id}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        <Meta meta={e.meta} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                {entries.data.length === 0 ? (
+                    <EmptyState
+                        icon={ScrollText}
+                        title="Yozuvlar topilmadi"
+                        description={
+                            filtered
+                                ? 'Filtrlarni o‘zgartirib ko‘ring'
+                                : undefined
+                        }
+                        action={
+                            filtered ? (
+                                <Button variant="outline" onClick={reset}>
+                                    Filtrlarni tozalash
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <div className="overflow-hidden rounded-lg border bg-card shadow-xs">
+                        <Table className="min-w-[880px]">
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="w-[168px]">Vaqt</TableHead>
+                                    <TableHead>Harakat</TableHead>
+                                    <TableHead>Foydalanuvchi</TableHead>
+                                    <TableHead>Ish / obyekt</TableHead>
+                                    <TableHead>Tafsilotlar</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {entries.data.map((e) => (
+                                    <TableRow key={e.id} className="align-top">
+                                        <TableCell className="align-top whitespace-nowrap">
+                                            <span className="block tabular-nums text-ink">
+                                                {formatDateTime(e.created_at)}
+                                            </span>
+                                            {e.ip && (
+                                                <span className="block font-mono text-meta text-ink-muted">
+                                                    {e.ip}
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="align-top font-medium">
+                                            {e.action_label}
+                                        </TableCell>
+                                        <TableCell className="align-top">
+                                            {e.user?.name ?? (
+                                                <span className="text-ink-muted">
+                                                    Tizim
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="max-w-[240px] align-top">
+                                            {e.case_id !== null &&
+                                                (scope === 'all' ? (
+                                                    <span className="block truncate">
+                                                        {caseTitle(e.case_id)}
+                                                    </span>
+                                                ) : (
+                                                    <Link
+                                                        href={caseShow.url(
+                                                            e.case_id,
+                                                        )}
+                                                        className="focus-ring block truncate rounded-xs text-ink underline decoration-hairline underline-offset-4 transition-colors hover:decoration-ink"
+                                                    >
+                                                        {caseTitle(e.case_id)}
+                                                    </Link>
+                                                ))}
+                                            {e.subject_type && (
+                                                <span className="block font-mono text-meta text-ink-muted">
+                                                    {e.subject_type} #
+                                                    {e.subject_id}
+                                                </span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="max-w-[360px] align-top">
+                                            <Meta meta={e.meta} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
 
                 {entries.last_page > 1 && (
-                    <nav className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className="text-muted-foreground">
-                            {entries.from}–{entries.to} / {entries.total}
+                    <nav
+                        aria-label="Sahifalar"
+                        className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <span className="text-ink-secondary tabular-nums">
+                            {formatNumber(entries.from)}–{formatNumber(entries.to)}{' '}
+                            / {formatNumber(entries.total)}
                         </span>
                         <div className="flex flex-wrap gap-1">
-                            {entries.links.map((l, i) => (
-                                <Button
-                                    key={i}
-                                    asChild={l.url !== null}
-                                    size="sm"
-                                    variant={l.active ? 'default' : 'outline'}
-                                    disabled={l.url === null}
-                                    className={cn(l.url === null && 'pointer-events-none opacity-50')}
-                                >
-                                    {l.url !== null ? (
-                                        <Link href={l.url} preserveScroll>
-                                            {paginationLabel(l.label)}
-                                        </Link>
+                            {entries.links.map((l, i) => {
+                                const label = paginationLabel(l.label);
+                                const content =
+                                    label === 'prev' ? (
+                                        <>
+                                            <ChevronLeft aria-hidden />
+                                            <span className="sr-only sm:not-sr-only">
+                                                Oldingi
+                                            </span>
+                                        </>
+                                    ) : label === 'next' ? (
+                                        <>
+                                            <span className="sr-only sm:not-sr-only">
+                                                Keyingi
+                                            </span>
+                                            <ChevronRight aria-hidden />
+                                        </>
                                     ) : (
-                                        <span>{paginationLabel(l.label)}</span>
-                                    )}
-                                </Button>
-                            ))}
+                                        label
+                                    );
+                                const cls = cn(
+                                    'min-w-8 tabular-nums',
+                                    l.active &&
+                                        'border-brand-border bg-brand-soft text-brand hover:border-brand-border hover:bg-brand-soft',
+                                    l.url === null &&
+                                        'pointer-events-none opacity-50',
+                                );
+
+                                return l.url !== null ? (
+                                    <Button
+                                        key={i}
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                        className={cls}
+                                    >
+                                        <Link
+                                            href={l.url}
+                                            preserveScroll
+                                            aria-current={
+                                                l.active ? 'page' : undefined
+                                            }
+                                        >
+                                            {content}
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        key={i}
+                                        size="sm"
+                                        variant="outline"
+                                        disabled
+                                        className={cls}
+                                    >
+                                        {content}
+                                    </Button>
+                                );
+                            })}
                         </div>
                     </nav>
                 )}
@@ -283,11 +396,11 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
 
 function paginationLabel(label: string): string {
     if (label.includes('Previous') || label.includes('&laquo;')) {
-        return '‹ Oldingi';
+        return 'prev';
     }
 
     if (label.includes('Next') || label.includes('&raquo;')) {
-        return 'Keyingi ›';
+        return 'next';
     }
 
     return label;

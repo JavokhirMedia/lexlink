@@ -1,6 +1,11 @@
 import { Head, Link } from "@inertiajs/react";
-import { Briefcase, ChevronRight, Lock } from "lucide-react";
+import { ChevronRight, FolderOpen } from "lucide-react";
+import { EmptyState } from "@/components/brand/empty-state";
+import { formatNumber } from "@/components/brand/money";
+import { PageHeader } from "@/components/brand/page-header";
+import { RegistryChip } from "@/components/brand/registry-chip";
 import ClientLayout from "@/components/client/client-layout";
+import { ClientNote } from "@/components/client/client-note";
 import { show as clientCaseShow } from "@/routes/client/cases";
 import type { ClientCaseInfo } from "@/types/lexlink";
 
@@ -16,56 +21,66 @@ export default function ClientIndex({ cases, note }: Props) {
     return (
         <>
             <Head title="Mening ishlarim" />
-            <div>
-                <h1 className="text-xl font-semibold tracking-tight">
-                    Mening ishlarim
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                    Advokatingiz advokat orderi asosida sizga ochgan ishlar.
-                </p>
-            </div>
+            <PageHeader
+                title="Mening ishlarim"
+                description="Advokatingiz advokat orderi asosida sizga ochgan ishlar"
+            />
 
             {cases.length === 0 ? (
-                <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-                    Hozircha sizga ochilgan ish yo'q. Advokatingiz yuborgan
-                    kirish havolasini oching.
-                </div>
+                <EmptyState
+                    icon={FolderOpen}
+                    title="Hozircha sizga ochilgan ish yo'q"
+                    description="Advokatingiz yuborgan kirish havolasini oching"
+                />
             ) : (
-                <ul className="divide-y rounded-lg border bg-card">
+                <ul className="flex flex-col divide-y divide-hairline rounded-lg border bg-card shadow-xs">
                     {cases.map((c) => (
                         <li key={c.id}>
                             <Link
                                 href={clientCaseShow.url(c.id)}
-                                className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-muted/50"
+                                className="focus-ring group flex items-center justify-between gap-4 px-6 py-4 transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-page"
                             >
-                                <div className="flex min-w-0 items-start gap-3">
-                                    <Briefcase className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-                                    <div className="min-w-0">
-                                        <p className="truncate font-medium">
-                                            {c.title}
-                                        </p>
-                                        <p className="truncate text-sm text-muted-foreground">
-                                            Advokat: {c.advocate.name}
-                                            {c.advocate.license_number &&
-                                                ` (${c.advocate.license_number})`}{" "}
-                                            · Order{" "}
-                                            <span className="font-mono">
-                                                {c.order_number}
-                                            </span>{" "}
-                                            · {c.requests_count} ta so'rov
-                                        </p>
+                                <div className="flex min-w-0 flex-col gap-2">
+                                    <p className="text-base font-medium text-ink">
+                                        {c.title}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-secondary">
+                                        <span>
+                                            Advokat:{" "}
+                                            <span className="text-ink">
+                                                {c.advocate.name ?? "—"}
+                                            </span>
+                                        </span>
+                                        {c.advocate.license_number && (
+                                            <RegistryChip
+                                                value={c.advocate.license_number}
+                                                kind="license"
+                                                size="sm"
+                                            />
+                                        )}
+                                        <RegistryChip
+                                            value={c.order_number}
+                                            kind="order"
+                                            size="sm"
+                                        />
+                                        <span className="tabular-nums">
+                                            {formatNumber(c.requests_count)} ta
+                                            so'rov
+                                        </span>
                                     </div>
                                 </div>
-                                <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                                <ChevronRight
+                                    className="size-[18px] shrink-0 text-ink-muted transition-colors group-hover:text-ink"
+                                    strokeWidth={1.5}
+                                    aria-hidden
+                                />
                             </Link>
                         </li>
                     ))}
                 </ul>
             )}
 
-            <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Lock className="mt-0.5 size-3.5 shrink-0" /> {note}
-            </p>
+            <ClientNote>{note}</ClientNote>
         </>
     );
 }

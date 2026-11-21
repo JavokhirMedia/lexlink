@@ -39,7 +39,7 @@ return [
         'prompt_version' => 'v1',
         // Oila kodeksi 99-modda 2-qism: per child alimony >= 26.5% of the statutory minimum wage
         // (mehnatga haq to'lashning eng kam miqdori). Verify the current figure before the pitch.
-        'min_wage' => (int) env('LEXLINK_MIN_WAGE', 1271000),
+        'min_wage' => (int) env('LEXLINK_MIN_WAGE', 1360000), // eng kam ish haqi from 01.09.2026 (PF-115),
         'alimony_min_share_of_min_wage' => 0.265,
     ],
 ];

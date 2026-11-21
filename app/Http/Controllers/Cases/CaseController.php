@@ -128,7 +128,7 @@ class CaseController extends Controller
 
         $audit->log(AuditAction::CaseCreated, $case, ['title' => $case->title, 'owner_id' => $advocate->id], $case->id);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ish yaratildi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Ish yaratildi']);
 
         return to_route('cases.show', $case);
     }

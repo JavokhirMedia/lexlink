@@ -1,15 +1,20 @@
 import { Braces, Download, Eye, Table2 } from "lucide-react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { formatMoney } from "@/components/brand/money";
+import { RegistryChip } from "@/components/brand/registry-chip";
+import { Section } from "@/components/brand/section";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import {
+    Table as UiTable,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { payload as payloadRoute, pdf as pdfRoute } from "@/routes/requests";
 import type { DataRequestType } from "@/types/lexlink";
 import { jsonRequest } from "./http";
@@ -21,10 +26,6 @@ type Payload = {
     data?: Record<string, unknown>;
 } & Row;
 
-const th =
-    "border-b px-3 py-2 text-left text-xs font-medium text-muted-foreground";
-const td = "border-b px-3 py-2 align-top";
-
 function str(v: unknown): string {
     if (v === null || v === undefined || v === "") {
         return "—";
@@ -33,39 +34,77 @@ function str(v: unknown): string {
     return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
-function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
+const mono = (v: unknown) => (
+    <span className="font-mono text-meta whitespace-nowrap">{str(v)}</span>
+);
+
+const money = (v: unknown) => formatMoney(Number(v ?? 0));
+
+/** A header label ending in "!" marks a numeric column (right-aligned); the "!" is not shown. */
+function Table({
+    caption,
+    head,
+    rows,
+}: {
+    caption?: string;
+    head: string[];
+    rows: ReactNode[][];
+}) {
+    const cols = head.map((h) => ({
+        label: h.replace(/!$/, ""),
+        num: h.endsWith("!"),
+    }));
+
     return (
-        <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                    <tr>
-                        {head.map((h) => (
-                            <th key={h} className={th}>
-                                {h}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.length === 0 ? (
-                        <tr>
-                            <td className={td} colSpan={head.length}>
-                                Ma'lumot topilmadi
-                            </td>
-                        </tr>
-                    ) : (
-                        rows.map((r, i) => (
-                            <tr key={i}>
-                                {r.map((c, j) => (
-                                    <td key={j} className={td}>
-                                        {c}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
+        <div className="flex flex-col gap-2">
+            {caption && (
+                <h3 className="text-sm font-medium text-ink">{caption}</h3>
+            )}
+            <div className="overflow-hidden rounded-lg border bg-card">
+                <UiTable className="min-w-[600px]">
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            {cols.map((c) => (
+                                <TableHead
+                                    key={c.label}
+                                    className={cn(c.num && "text-right")}
+                                >
+                                    {c.label}
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.length === 0 ? (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell
+                                    colSpan={cols.length}
+                                    className="text-ink-secondary"
+                                >
+                                    Ma'lumot topilmadi
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            rows.map((r, i) => (
+                                <TableRow key={i}>
+                                    {r.map((c, j) => (
+                                        <TableCell
+                                            key={j}
+                                            className={cn(
+                                                j === 0 && "whitespace-nowrap",
+                                                cols[j]?.num &&
+                                                    "text-right whitespace-nowrap",
+                                            )}
+                                        >
+                                            {c}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </UiTable>
+            </div>
         </div>
     );
 }
@@ -82,20 +121,17 @@ function TypedTable({
     if (type === "salary") {
         return (
             <Table
-                head={["Davr", "Ish beruvchi", "Ish haqi", "Pensiya badali"]}
+                head={["Davr", "Ish beruvchi", "Ish haqi!", "Pensiya badali!"]}
                 rows={list("months").map((m) => [
                     formatMonth(m.period as string),
                     str(m.employer),
-                    <span className="tabular-nums">
-                        {formatMoney(Number(m.amount ?? 0))}
-                    </span>,
-                    <span className="tabular-nums">
-                        {formatMoney(Number(m.pension_contribution ?? 0))}
-                    </span>,
+                    money(m.amount),
+                    money(m.pension_contribution),
                 ])}
             />
         );
     }
+
     if (type === "property") {
         return (
             <Table
@@ -103,15 +139,13 @@ function TypedTable({
                     "Kadastr raqami",
                     "Turi",
                     "Manzil",
-                    "Maydon",
+                    "Maydon!",
                     "Ulush",
                     "Ro'yxatga olingan",
                     "Cheklovlar",
                 ]}
                 rows={list("objects").map((o) => [
-                    <span className="font-mono text-xs">
-                        {str(o.cadastral_number)}
-                    </span>,
+                    mono(o.cadastral_number),
                     str(o.type),
                     str(o.address),
                     `${str(o.area)} m²`,
@@ -124,12 +158,13 @@ function TypedTable({
             />
         );
     }
+
     if (type === "vehicle") {
         return (
             <Table
                 head={[
                     "Rusumi",
-                    "Yili",
+                    "Yili!",
                     "Davlat raqami",
                     "Rangi",
                     "VIN",
@@ -138,9 +173,9 @@ function TypedTable({
                 rows={list("vehicles").map((v) => [
                     str(v.model),
                     str(v.year),
-                    <span className="font-mono text-xs">{str(v.plate)}</span>,
+                    mono(v.plate),
                     str(v.color),
-                    <span className="font-mono text-xs">{str(v.vin)}</span>,
+                    mono(v.vin),
                     v.pledge ? str((v.pledge as Row).holder) : "Yo'q",
                 ])}
             />
@@ -151,40 +186,34 @@ function TypedTable({
         const ie = (data.individual_entrepreneur as Row | undefined) ?? {};
 
         return (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-6">
                 <Table
+                    caption="Soliq profili"
                     head={[
                         "STIR",
                         "Soliq rejimi",
                         "QQS",
                         "YaTT",
-                        "Soliq qarzi",
-                        "O'tgan yili to'langan",
+                        "Soliq qarzi!",
+                        "O'tgan yili to'langan!",
                     ]}
                     rows={[
                         [
-                            <span className="font-mono text-xs">
-                                {str(data.tin)}
-                            </span>,
+                            mono(data.tin),
                             str(data.tax_regime),
                             data.vat_payer ? "Ha" : "Yo'q",
                             `${str(ie.status)}${ie.activity ? ` — ${str(ie.activity)}` : ""}`,
-                            <span className="tabular-nums">
-                                {formatMoney(Number(data.tax_debt ?? 0))}
-                            </span>,
-                            <span className="tabular-nums">
-                                {formatMoney(
-                                    Number(data.taxes_paid_last_year ?? 0),
-                                )}
-                            </span>,
+                            money(data.tax_debt),
+                            money(data.taxes_paid_last_year),
                         ],
                     ]}
                 />
                 <Table
-                    head={["Yuridik shaxs", "STIR", "Ulush", "Holati"]}
+                    caption="Yuridik shaxslarda ishtirok"
+                    head={["Yuridik shaxs", "STIR", "Ulush!", "Holati"]}
                     rows={list("participations").map((p) => [
                         str(p.name),
-                        <span className="font-mono text-xs">{str(p.tin)}</span>,
+                        mono(p.tin),
                         `${str(p.share_percent)}%`,
                         str(p.status),
                     ])}
@@ -192,34 +221,32 @@ function TypedTable({
             </div>
         );
     }
+
     if (type === "business_shares") {
         return (
             <Table
                 head={[
                     "Yuridik shaxs",
                     "STIR",
-                    "Ulush",
-                    "Ustav fondi",
-                    "Ulush qiymati",
+                    "Ulush!",
+                    "Ustav fondi!",
+                    "Ulush qiymati!",
                     "Ta'sischi bo'lgan",
                     "Holati",
                 ]}
                 rows={list("companies").map((c) => [
                     str(c.name),
-                    <span className="font-mono text-xs">{str(c.tin)}</span>,
+                    mono(c.tin),
                     `${str(c.share_percent)}%`,
-                    <span className="tabular-nums">
-                        {formatMoney(Number(c.charter_capital ?? 0))}
-                    </span>,
-                    <span className="tabular-nums">
-                        {formatMoney(Number(c.share_value ?? 0))}
-                    </span>,
+                    money(c.charter_capital),
+                    money(c.share_value),
                     str(c.since),
                     str(c.status),
                 ])}
             />
         );
     }
+
     if (type === "bank_accounts") {
         return (
             <Table
@@ -227,9 +254,9 @@ function TypedTable({
                     "Bank",
                     "Hisobvaraq",
                     "Valyuta",
-                    "Qoldiq",
-                    "Kirim (6 oy)",
-                    "Chiqim (6 oy)",
+                    "Qoldiq!",
+                    "Kirim (6 oy)!",
+                    "Chiqim (6 oy)!",
                     "Ochilgan",
                     "Cheklovlar",
                 ]}
@@ -238,19 +265,11 @@ function TypedTable({
 
                     return [
                         str(a.bank),
-                        <span className="font-mono text-xs">
-                            {str(a.account)}
-                        </span>,
+                        mono(a.account),
                         cur,
-                        <span className="tabular-nums">
-                            {formatCurrency(Number(a.balance ?? 0), cur)}
-                        </span>,
-                        <span className="tabular-nums">
-                            {formatCurrency(Number(a.turnover_in ?? 0), cur)}
-                        </span>,
-                        <span className="tabular-nums">
-                            {formatCurrency(Number(a.turnover_out ?? 0), cur)}
-                        </span>,
+                        formatCurrency(Number(a.balance ?? 0), cur),
+                        formatCurrency(Number(a.turnover_in ?? 0), cur),
+                        formatCurrency(Number(a.turnover_out ?? 0), cur),
                         str(a.opened_at),
                         ((a.restrictions as Row[] | undefined) ?? [])
                             .map((x) => `${str(x.type)} (${str(x.by)})`)
@@ -260,11 +279,12 @@ function TypedTable({
             />
         );
     }
+
     if (type === "border_crossing") {
         return (
-            <div className="space-y-3">
+            <div className="flex flex-col gap-4">
                 {data.currently_abroad === true && (
-                    <p className="rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm text-danger">
+                    <p className="rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger">
                         Shaxs hozir chet elda: so'nggi chiqish{" "}
                         {str((data.last_exit as Row | undefined)?.date)} ·{" "}
                         {str((data.last_exit as Row | undefined)?.country)}
@@ -279,7 +299,7 @@ function TypedTable({
                     ]}
                     rows={list("crossings").map((c) => [
                         c.direction === "exit" ? "Chiqish" : "Kirish",
-                        <span className="tabular-nums">{str(c.date)}</span>,
+                        <span className="whitespace-nowrap">{str(c.date)}</span>,
                         str(c.country),
                         str(c.checkpoint),
                     ])}
@@ -289,14 +309,19 @@ function TypedTable({
     }
 
     return (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-6">
             <Table
+                caption="Sud ishi"
                 head={["Ish raqami", "Sud", "Sudya", "Toifa", "Holati"]}
                 rows={
                     data.case_number
                         ? [
                               [
-                                  str(data.case_number),
+                                  <RegistryChip
+                                      value={str(data.case_number)}
+                                      kind="case"
+                                      size="sm"
+                                  />,
                                   str(data.court),
                                   str(data.judge),
                                   str(data.category),
@@ -307,14 +332,16 @@ function TypedTable({
                 }
             />
             <Table
+                caption="Taraflar"
                 head={["Taraf", "F.I.Sh.", "JShShIR"]}
                 rows={list("parties").map((p) => [
                     str(p.role),
                     str(p.name),
-                    <span className="font-mono text-xs">{str(p.pinfl)}</span>,
+                    mono(p.pinfl),
                 ])}
             />
             <Table
+                caption="Sud majlislari"
                 head={["Sana", "Vaqt", "Xona", "Izoh"]}
                 rows={list("hearings").map((h) => [
                     str(h.date),
@@ -324,9 +351,10 @@ function TypedTable({
                 ])}
             />
             <Table
+                caption="Qarorlar"
                 head={["Qaror", "Sana", "Turi", "Mazmuni"]}
                 rows={list("decisions").map((d) => [
-                    str(d.number),
+                    mono(d.number),
                     str(d.date),
                     str(d.type),
                     str(d.summary),
@@ -369,24 +397,44 @@ export function ResponseFullView({
     };
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1.5">
-                    <CardTitle>To'liq javob</CardTitle>
-                    <CardDescription>
-                        Har bir ochish va yuklab olish audit jurnaliga yoziladi.
-                    </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2">
+        <Section
+            title="To'liq javob"
+            description="Har bir ochish va yuklab olish audit jurnaliga yoziladi"
+            actions={
+                <>
                     {data && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRaw((v) => !v)}
+                        <div
+                            role="group"
+                            aria-label="Ko'rinish"
+                            className="inline-flex h-8 rounded-md border border-input bg-surface p-0.5"
                         >
-                            {raw ? <Table2 /> : <Braces />}
-                            {raw ? "Jadval" : "JSON"}
-                        </Button>
+                            {(
+                                [
+                                    [false, "Jadval", Table2],
+                                    [true, "JSON", Braces],
+                                ] as const
+                            ).map(([value, label, Icon]) => (
+                                <button
+                                    key={label}
+                                    type="button"
+                                    aria-pressed={raw === value}
+                                    onClick={() => setRaw(value)}
+                                    className={cn(
+                                        "focus-ring inline-flex items-center gap-1.5 rounded-sm px-2.5 text-sm transition-colors",
+                                        raw === value
+                                            ? "bg-raised font-medium text-ink"
+                                            : "text-ink-secondary hover:text-ink",
+                                    )}
+                                >
+                                    <Icon
+                                        className="size-4"
+                                        strokeWidth={1.5}
+                                        aria-hidden
+                                    />
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
                     )}
                     <Button variant="outline" size="sm" asChild>
                         <a href={pdfRoute.url(requestId)}>
@@ -394,40 +442,61 @@ export function ResponseFullView({
                             PDF (suv belgili)
                         </a>
                     </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {!data ? (
-                    <div className="flex flex-col items-start gap-2">
-                        <Button onClick={open} disabled={loading}>
-                            {loading ? <Spinner /> : <Eye />}
-                            To'liq javobni ochish
-                        </Button>
+                </>
+            }
+        >
+            {!data ? (
+                <div className="flex flex-col gap-4 rounded-lg border bg-card p-6 shadow-xs sm:flex-row sm:items-center">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-raised text-ink-secondary">
+                        <Eye
+                            className="size-[18px]"
+                            strokeWidth={1.5}
+                            aria-hidden
+                        />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <p className="text-base font-medium text-ink">
+                            Javob mazmuni yopiq
+                        </p>
+                        <p className="text-sm text-ink-secondary">
+                            Ochilganda idora yuborgan barcha yozuvlar jadvalda
+                            ko'rsatiladi
+                        </p>
                         {error && (
-                            <p className="text-sm text-danger">{error}</p>
-                        )}
-                    </div>
-                ) : raw ? (
-                    <pre className="max-h-[480px] overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-                        {JSON.stringify(data, null, 2)}
-                    </pre>
-                ) : (
-                    <div className="space-y-3">
-                        {data.subject && (
-                            <p className="text-sm">
-                                <span className="text-muted-foreground">
-                                    Shaxs:{" "}
-                                </span>
-                                {data.subject.full_name ?? "—"}{" "}
-                                <span className="font-mono text-xs">
-                                    ({data.subject.pinfl})
-                                </span>
+                            <p className="text-sm text-danger" role="alert">
+                                {error}
                             </p>
                         )}
-                        <TypedTable type={type} data={data.data ?? {}} />
                     </div>
-                )}
-            </CardContent>
-        </Card>
+                    <Button onClick={open} disabled={loading}>
+                        {loading ? <Spinner /> : <Eye />}
+                        To'liq javobni ochish
+                    </Button>
+                </div>
+            ) : raw ? (
+                <pre className="max-h-[480px] overflow-auto rounded-lg border bg-raised p-4 font-mono text-meta text-ink">
+                    {JSON.stringify(data, null, 2)}
+                </pre>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    {data.subject && (
+                        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-secondary">
+                            Shaxs
+                            <span className="font-medium text-ink">
+                                {data.subject.full_name ?? "—"}
+                            </span>
+                            {data.subject.pinfl && (
+                                <RegistryChip
+                                    value={data.subject.pinfl}
+                                    kind="pinfl"
+                                    size="sm"
+                                />
+                            )}
+                        </p>
+                    )}
+                    <TypedTable type={type} data={data.data ?? {}} />
+                </div>
+            )}
+        </Section>
     );
 }

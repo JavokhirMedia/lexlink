@@ -64,7 +64,7 @@ class OnboardingController extends Controller
             $provisioner->provision($user);
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Xush kelibsiz! Siz yurist sifatida ro\'yxatdan o\'tdingiz.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Siz yurist sifatida ro\'yxatdan o\'tdingiz']);
 
         return redirect()->intended(route('dashboard'));
     }
@@ -147,7 +147,7 @@ class OnboardingController extends Controller
             ], user: $user);
         });
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Litsenziya tasdiqlandi. Siz advokat sifatida ro\'yxatdan o\'tdingiz.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Litsenziya tasdiqlandi — siz advokat sifatida ro\'yxatdan o\'tdingiz']);
 
         return redirect()->intended(route('dashboard'));
     }

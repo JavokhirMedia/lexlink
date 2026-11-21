@@ -31,9 +31,9 @@ class AnalysisController extends Controller
         } catch (Throwable $e) {
             Log::error('AI analysis failed', ['request_id' => $dataRequest->id, 'error' => $e->getMessage()]);
             if ($request->wantsJson() && ! $request->header('X-Inertia')) {
-                return response()->json(['message' => "Tahlil qilib bo'lmadi."], 500);
+                return response()->json(['message' => "Tahlil qilib bo'lmadi"], 500);
             }
-            Inertia::flash('toast', ['type' => 'error', 'message' => "Tahlil qilib bo'lmadi. Keyinroq urinib ko'ring."]);
+            Inertia::flash('toast', ['type' => 'error', 'message' => "Tahlil qilib bo'lmadi — keyinroq urinib ko'ring"]);
 
             return back();
         }
@@ -42,7 +42,7 @@ class AnalysisController extends Controller
             return response()->json(['analysis' => AiAnalysisPresenter::present($analysis)]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'AI tahlil yangilandi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'AI tahlil yangilandi']);
 
         return back();
     }

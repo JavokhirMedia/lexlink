@@ -1,8 +1,8 @@
 import { useForm } from "@inertiajs/react";
-import { KeyRound, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { KeyRound, PenLine } from "lucide-react";
 import type { FormEvent } from "react";
 import { formatMoney } from "@/components/brand/money";
+import { RegistryChip } from "@/components/brand/registry-chip";
 import InputError from "@/components/input-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,8 +39,8 @@ export function SignDialog({
     onOpenChange: (open: boolean) => void;
 }) {
     const form = useForm({ key_id: "", confirm: false });
-    const [selected, setSelected] = useState<string>("");
     const errors = form.errors as Record<string, string | undefined>;
+    const selected = form.data.key_id === signerKey.id;
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -50,83 +50,122 @@ export function SignDialog({
         });
     };
 
+    const serverError =
+        errors.basis ??
+        errors.billing ??
+        errors.rate ??
+        errors.status ??
+        errors.request_text ??
+        errors.subject_pinfl;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
-                <form onSubmit={submit} className="space-y-4">
+                <form onSubmit={submit} className="flex flex-col gap-6">
                     <DialogHeader>
-                        <DialogTitle>
-                            Elektron raqamli imzo bilan imzolash
+                        <DialogTitle className="text-xl leading-7">
+                            ERI bilan imzolash
                         </DialogTitle>
-                        <DialogDescription>
-                            <span className="mr-2 inline-flex items-center rounded-sm border border-gold-border bg-gold-soft px-1.5 py-0.5 font-mono text-xs text-gold">
-                                Demo: ERI imitatsiyasi
-                            </span>
-                            Haqiqiy E-IMZO ulanmagan — kalit tanlash jarayoni
-                            ko'rsatiladi.
+                        <DialogDescription className="text-sm text-ink-secondary">
+                            E-IMZO imitatsiyasi (demo): haqiqiy kalit
+                            ulanmagan, tanlash jarayoni ko'rsatiladi
                         </DialogDescription>
                     </DialogHeader>
 
-                    <fieldset className="space-y-2">
-                        <legend className="mb-1 text-sm font-medium">
-                            ERI kalitini tanlang
+                    <fieldset className="flex flex-col gap-2">
+                        <legend className="mb-2 text-sm font-medium text-ink">
+                            Kalitni tanlang
                         </legend>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setSelected(signerKey.id);
-                                form.setData("key_id", signerKey.id);
-                            }}
-                            aria-pressed={selected === signerKey.id}
-                            className={cn(
-                                "flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/60",
-                                selected === signerKey.id &&
-                                    "border-primary bg-primary/5 ring-2 ring-primary/20",
-                            )}
-                        >
-                            <KeyRound
-                                className="mt-0.5 size-5 shrink-0 text-primary"
-                                aria-hidden
-                            />
-                            <span className="min-w-0 text-sm">
-                                <span className="block font-medium">
-                                    ERI kaliti: {signerKey.owner}, STIR{" "}
-                                    {signerKey.stir}
+                        <div role="radiogroup" aria-label="ERI kaliti">
+                            <button
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                onClick={() =>
+                                    form.setData("key_id", signerKey.id)
+                                }
+                                className={cn(
+                                    "focus-ring flex w-full items-start gap-3 rounded-lg border bg-surface p-4 text-left transition-colors hover:border-ink-muted/50",
+                                    selected &&
+                                        "border-brand bg-brand-soft hover:border-brand",
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
+                                        selected
+                                            ? "border-brand"
+                                            : "border-input",
+                                    )}
+                                    aria-hidden
+                                >
+                                    {selected && (
+                                        <span className="size-2 rounded-full bg-brand" />
+                                    )}
                                 </span>
-                                <span className="block text-xs text-muted-foreground">
-                                    {signerKey.issuer} · amal qiladi{" "}
-                                    {formatDate(signerKey.valid_to)} gacha
-                                    {signerKey.license_number
-                                        ? ` · Litsenziya ${signerKey.license_number}`
-                                        : ""}
+                                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <span className="flex items-center gap-2 text-base font-medium text-ink">
+                                        <KeyRound
+                                            className="size-[18px] shrink-0 text-ink-secondary"
+                                            strokeWidth={1.5}
+                                            aria-hidden
+                                        />
+                                        <span className="truncate">
+                                            {signerKey.owner}
+                                        </span>
+                                    </span>
+                                    <span className="text-sm text-ink-secondary">
+                                        STIR{" "}
+                                        <span className="font-mono text-ink tabular-nums">
+                                            {signerKey.stir}
+                                        </span>{" "}
+                                        · {signerKey.issuer}
+                                    </span>
+                                    <span className="flex flex-wrap items-center gap-2 text-xs text-ink-secondary">
+                                        {signerKey.license_number && (
+                                            <RegistryChip
+                                                value={
+                                                    signerKey.license_number
+                                                }
+                                                kind="license"
+                                                size="sm"
+                                            />
+                                        )}
+                                        <span className="tabular-nums">
+                                            Amal qiladi{" "}
+                                            {formatDate(signerKey.valid_to)}{" "}
+                                            gacha
+                                        </span>
+                                    </span>
                                 </span>
-                            </span>
-                        </button>
+                            </button>
+                        </div>
                         <InputError message={errors.key_id} />
                     </fieldset>
 
-                    <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                        <p className="flex items-center justify-between">
-                            <span className="text-muted-foreground">
+                    <div className="flex flex-col gap-1 border-y py-4">
+                        <div className="flex items-baseline justify-between gap-4">
+                            <span className="text-sm text-ink-secondary">
                                 To'lov
                             </span>
-                            <span className="font-medium tabular-nums">
+                            <span className="text-base font-semibold text-ink tabular-nums">
                                 {quote
                                     ? quote.from_subscription
                                         ? "Obuna doirasida"
                                         : formatMoney(quote.cost)
                                     : "—"}
                             </span>
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        </div>
+                        <p className="text-xs text-ink-muted">
                             Rad etilsa yoki texnik xato bo'lsa, mablag'
-                            avtomatik qaytariladi.
+                            avtomatik qaytariladi
                         </p>
                     </div>
 
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-3">
                         <Checkbox
                             id="confirm"
+                            className="mt-0.5"
                             checked={form.data.confirm}
                             onCheckedChange={(v) =>
                                 form.setData("confirm", v === true)
@@ -134,31 +173,21 @@ export function SignDialog({
                         />
                         <Label
                             htmlFor="confirm"
-                            className="text-sm leading-snug font-normal"
+                            className="text-sm leading-5 font-normal text-ink"
                         >
                             So'rov huquqiy asos doirasida ekanini va olingan
                             ma'lumot advokat siri sifatida saqlanishini
-                            tasdiqlayman.
+                            tasdiqlayman
                         </Label>
                     </div>
                     <InputError message={errors.confirm} />
 
-                    {(errors.basis ||
-                        errors.billing ||
-                        errors.rate ||
-                        errors.status ||
-                        errors.request_text ||
-                        errors.subject_pinfl) && (
+                    {serverError && (
                         <div
                             role="alert"
-                            className="rounded-md border border-danger-border bg-danger-soft p-3 text-sm text-danger"
+                            className="rounded-lg border border-danger-border bg-danger-soft px-4 py-3 text-sm text-danger"
                         >
-                            {errors.basis ??
-                                errors.billing ??
-                                errors.rate ??
-                                errors.status ??
-                                errors.request_text ??
-                                errors.subject_pinfl}
+                            {serverError}
                             {errors.billing && (
                                 <a
                                     href="/billing"
@@ -170,7 +199,7 @@ export function SignDialog({
                         </div>
                     )}
 
-                    <DialogFooter>
+                    <DialogFooter className="gap-2">
                         <Button
                             type="button"
                             variant="outline"
@@ -186,7 +215,7 @@ export function SignDialog({
                                 form.processing
                             }
                         >
-                            {form.processing ? <Spinner /> : <ShieldCheck />}
+                            {form.processing ? <Spinner /> : <PenLine />}
                             Imzolash va yuborish
                         </Button>
                     </DialogFooter>

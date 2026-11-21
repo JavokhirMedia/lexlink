@@ -60,7 +60,7 @@ export function SecrecyDeclarationDialog({
                 onError: (errors) =>
                     setError(
                         Object.values(errors)[0] ??
-                            'Majburiyatni saqlab bo‘lmadi.',
+                            'Majburiyatni saqlab bo‘lmadi',
                     ),
                 onFinish: () => setProcessing(false),
             },
@@ -71,17 +71,17 @@ export function SecrecyDeclarationDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <ShieldCheck className="size-5 text-primary" />
+                    <DialogTitle className="flex items-center gap-2 text-xl leading-7">
+                        <ShieldCheck className="size-5 text-ink-secondary" strokeWidth={1.5} aria-hidden />
                         Advokat sirini saqlash majburiyati
                     </DialogTitle>
                     <DialogDescription>
                         Ushbu ish bo‘yicha davlat idoralaridan olingan javoblarni
-                        ko‘rishdan oldin quyidagi majburiyatni qabul qiling.
+                        ko‘rishdan oldin quyidagi majburiyatni qabul qiling
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="max-h-[50vh] space-y-3 overflow-y-auto rounded-md border bg-muted/40 p-4 text-sm leading-relaxed">
+                <div className="max-h-[50vh] space-y-3 overflow-y-auto rounded-lg border bg-raised p-4 text-sm leading-6 text-ink">
                     <p>Men, advokat yordamchisi (yurist) sifatida:</p>
                     <ol className="list-decimal space-y-2 pl-5">
                         <li>
@@ -118,16 +118,17 @@ export function SecrecyDeclarationDialog({
 
                 <div className="flex items-start gap-3">
                     <Checkbox
+                        className="mt-0.5"
                         id={`secrecy-accept-${caseId}`}
                         checked={checked}
                         onCheckedChange={(v) => setChecked(v === true)}
                     />
                     <Label
                         htmlFor={`secrecy-accept-${caseId}`}
-                        className="text-sm leading-snug font-normal"
+                        className="text-sm leading-5 font-normal text-ink"
                     >
                         Men yuqoridagi majburiyatni o‘qib chiqdim va uni qabul
-                        qilaman.
+                        qilaman
                     </Label>
                 </div>
 

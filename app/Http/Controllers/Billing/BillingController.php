@@ -69,7 +69,7 @@ class BillingController extends Controller
 
         $this->billing->changePlan($request->user(), $plan); // InsufficientBalance renders as errors.billing
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => "\"{$plan->name}\" tarifi faollashtirildi."]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => "\"{$plan->name}\" tarifi faollashtirildi"]);
 
         return to_route('billing.index');
     }

@@ -1,9 +1,9 @@
 import { router } from "@inertiajs/react";
-import { FileSearch, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { formatDateTime, formatNumber } from "@/components/brand/money";
+import { Section } from "@/components/brand/section";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { analyze } from "@/routes/ai/requests";
 import type { AiAnalysis, AlimonyCalculation } from "@/types/lexlink";
 import { AiDisclaimer } from "./ai-disclaimer";
@@ -12,7 +12,6 @@ import { AlimonyTable } from "./alimony-table";
 import { CitationChips } from "./citation-chips";
 import { modelLabel, restorePii } from "./format";
 import { AiMarkdown } from "./markdown";
-import { formatDateTime } from "@/components/brand/money";
 
 type Props = { requestId: number; analysis: AiAnalysis | null };
 
@@ -41,24 +40,19 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
         analysis?.disclaimer ?? (structured?.disclaimer as string | undefined);
 
     return (
-        <Card className="gap-4">
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
-                <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                        <FileSearch
-                            className="size-4 text-primary"
-                            aria-hidden
-                        />
-                        AI tahlil
-                    </CardTitle>
-                    {analysis && (
-                        <p className="text-xs text-muted-foreground">
-                            {formatDateTime(analysis.created_at)}
-                            {analysis.model &&
-                                ` · ${modelLabel(analysis.model)}`}
-                        </p>
-                    )}
-                </div>
+        <Section
+            title="AI tahlil"
+            description={
+                analysis ? (
+                    <span className="tabular-nums">
+                        {formatDateTime(analysis.created_at)}
+                        {analysis.model && ` · ${modelLabel(analysis.model)}`}
+                    </span>
+                ) : (
+                    "AI'ga faqat egasizlantirilgan ma'lumot yuboriladi (ShMQ 16-modda)"
+                )
+            }
+            actions={
                 <Button
                     variant="outline"
                     size="sm"
@@ -66,26 +60,24 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                     disabled={processing}
                 >
                     <RefreshCw
-                        className={
-                            processing ? "size-4 animate-spin" : "size-4"
-                        }
+                        className={processing ? "animate-spin" : undefined}
                         aria-hidden
                     />
                     {analysis ? "Qayta tahlil" : "Tahlil qilish"}
                 </Button>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
+            }
+        >
+            <div className="flex flex-col gap-6 rounded-lg border bg-card p-4 shadow-xs sm:p-6">
                 {!analysis && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-ink-secondary">
                         {processing
                             ? "Tahlil tayyorlanmoqda…"
-                            : "Javob hali tahlil qilinmagan. AI'ga faqat egasizlantirilgan ma'lumot yuboriladi (ShMQ 16-modda)."}
+                            : "Javob hali tahlil qilinmagan"}
                     </p>
                 )}
 
                 {analysis?.status === "failed" && (
-                    <p className="text-sm text-destructive">
+                    <p className="text-sm text-danger" role="alert">
                         Tahlil bajarilmadi. Qayta urinib ko'ring.
                     </p>
                 )}
@@ -95,20 +87,27 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 {facts &&
                     typeof facts.count === "number" &&
                     structured?.type !== "court_case" && (
-                        <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">
-                                Topildi: {facts.count}
-                            </Badge>
+                        <p className="text-sm text-ink-secondary">
+                            Topildi:{" "}
+                            <span className="font-medium text-ink tabular-nums">
+                                {formatNumber(facts.count)}
+                            </span>
                             {typeof facts.encumbered === "number" && (
-                                <Badge variant="outline">
-                                    Garov / taqiq: {facts.encumbered}
-                                </Badge>
+                                <>
+                                    {" · "}Garov / taqiq:{" "}
+                                    <span className="font-medium text-ink tabular-nums">
+                                        {formatNumber(facts.encumbered)}
+                                    </span>
+                                </>
                             )}
-                        </div>
+                        </p>
                     )}
 
                 {output && (
-                    <AiMarkdown citations={analysis?.citations}>
+                    <AiMarkdown
+                        citations={analysis?.citations}
+                        className="max-w-[72ch]"
+                    >
                         {output}
                     </AiMarkdown>
                 )}
@@ -123,8 +122,8 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 )}
 
                 {analysis && <AiDisclaimer text={disclaimer} />}
-            </CardContent>
-        </Card>
+            </div>
+        </Section>
     );
 }
 

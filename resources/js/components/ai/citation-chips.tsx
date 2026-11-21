@@ -1,50 +1,60 @@
-import { BookOpen, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Citation } from '@/types/lexlink';
 
+/**
+ * Quiet numbered source list under an AI answer. The numbers match the [n]
+ * references in the text; every item links to the article on lex.uz.
+ */
 export function CitationChips({
     citations,
     numbered = true,
+    className,
 }: {
     citations: Citation[] | null | undefined;
     numbered?: boolean;
+    className?: string;
 }) {
     if (!citations?.length) {
         return null;
     }
 
     return (
-        <div className="space-y-2">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <BookOpen className="size-3.5" aria-hidden />
-                Huquqiy manbalar (lex.uz)
+        <div className={cn('flex flex-col gap-2', className)}>
+            <p className="text-meta font-medium text-ink-secondary">
+                Manbalar (lex.uz)
             </p>
-            <ul className="flex flex-wrap gap-1.5">
+            <ol className="flex flex-col gap-1">
                 {citations.map((c, i) => (
-                    <li key={`${c.law}-${c.article}-${i}`}>
+                    <li
+                        key={`${c.law}-${c.article}-${i}`}
+                        className="flex min-w-0 items-baseline gap-2 text-sm"
+                    >
+                        {numbered && (
+                            <span className="w-6 shrink-0 font-mono text-meta text-ink-muted tabular-nums">
+                                [{i + 1}]
+                            </span>
+                        )}
                         <a
                             href={c.url ?? 'https://lex.uz'}
                             target="_blank"
                             rel="noreferrer"
                             title={c.title ?? undefined}
-                            className="inline-flex max-w-full items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs transition-colors hover:border-primary/50 hover:bg-primary/5"
+                            className="focus-ring group inline-flex min-w-0 items-baseline gap-1.5 rounded-xs text-ink-secondary transition-colors hover:text-brand"
                         >
-                            {numbered && (
-                                <span className="font-semibold text-primary tabular-nums">
-                                    {i + 1}
-                                </span>
-                            )}
-                            <span className="truncate">
+                            <span className="min-w-0 underline decoration-hairline underline-offset-4 group-hover:decoration-current">
                                 {c.law}
                                 {c.article ? `, ${c.article}` : ''}
                             </span>
                             <ExternalLink
-                                className="size-3 shrink-0 text-muted-foreground"
+                                className="size-3.5 shrink-0 self-center text-ink-muted"
+                                strokeWidth={1.5}
                                 aria-hidden
                             />
                         </a>
                     </li>
                 ))}
-            </ul>
+            </ol>
         </div>
     );
 }

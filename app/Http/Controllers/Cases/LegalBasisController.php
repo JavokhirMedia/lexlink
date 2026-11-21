@@ -165,9 +165,9 @@ class LegalBasisController extends Controller
     {
         match ($basis->verification_status) {
             'verified' => Inertia::flash('toast', ['type' => 'success', 'message' => "Huquqiy asos tasdiqlandi: {$basis->number}"]),
-            'not_found' => Inertia::flash('toast', ['type' => 'error', 'message' => $basis->verification_payload['error'] ?? "Reyestrda {$basis->number} topilmadi."]),
+            'not_found' => Inertia::flash('toast', ['type' => 'error', 'message' => $basis->verification_payload['error'] ?? "Reyestrda {$basis->number} topilmadi"]),
             'expired' => Inertia::flash('toast', ['type' => 'error', 'message' => "Huquqiy asos muddati tugagan: {$basis->number}"]),
-            default => Inertia::flash('toast', ['type' => 'error', 'message' => $basis->verification_payload['error'] ?? 'Huquqiy asos tasdiqlanmadi.']),
+            default => Inertia::flash('toast', ['type' => 'error', 'message' => $basis->verification_payload['error'] ?? 'Huquqiy asos tasdiqlanmadi']),
         };
     }
 }

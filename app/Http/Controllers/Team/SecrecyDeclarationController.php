@@ -37,7 +37,7 @@ class SecrecyDeclarationController extends Controller
             return response()->json(['secrecy_declared_at' => $membership->secrecy_declared_at->toIso8601String()]);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Advokat sirini saqlash majburiyati qabul qilindi.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Advokat sirini saqlash majburiyati qabul qilindi']);
 
         return back();
     }

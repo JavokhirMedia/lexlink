@@ -59,13 +59,13 @@ export default function Help() {
     return (
         <>
             <Head title="Yordam" />
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-12">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
                 <PageHeader
                     title="Yordam"
                     description="LexLink qanday ishlashi, qaysi huquqiy asos nimaga yetishi va ma'lumotlaringiz qanday himoyalanishi haqida qisqa qo'llanma"
                 />
 
-                <Section title="Qanday ishlaydi">
+                <Section className="border-t border-hairline pt-8" title="Qanday ishlaydi">
                     <ol className="flex flex-col gap-6">
                         {STEPS.map((s, i) => (
                             <li key={s.title} className="flex gap-4">
@@ -73,10 +73,10 @@ export default function Help() {
                                     {i + 1}
                                 </span>
                                 <div className="flex flex-col gap-1 pt-1">
-                                    <h3 className="text-base font-semibold text-ink">
+                                    <h3 className="text-lg font-semibold text-ink">
                                         {s.title}
                                     </h3>
-                                    <p className="text-base text-ink-secondary">
+                                    <p className="max-w-[72ch] text-base leading-[26px] text-ink-secondary">
                                         {s.text}
                                     </p>
                                 </div>
@@ -86,18 +86,19 @@ export default function Help() {
                 </Section>
 
                 <Section
+                    className="border-t border-hairline pt-8"
                     title="Huquqiy asos turlari"
                     description="Asos bo'lmasa, so'rov yo'q"
                 >
                     <div className="flex flex-col gap-4">
                         <div className="rounded-lg border bg-card p-6 shadow-xs">
                             <div className="flex flex-wrap items-center gap-3">
-                                <h3 className="text-base font-semibold text-ink">
+                                <h3 className="text-lg font-semibold text-ink">
                                     Advokat orderi
                                 </h3>
                                 <AccessBadge access="order" size="sm" />
                             </div>
-                            <p className="mt-2 text-base text-ink-secondary">
+                            <p className="mt-2 max-w-[72ch] text-base leading-[26px] text-ink-secondary">
                                 Advokat so'rovi (Advokatura to'g'risidagi Qonun,
                                 7¹-modda) bilan birga yuboriladi. Sud ishlari,
                                 soliq ma'lumotining ochiq qismi, ko'chmas mulk,
@@ -107,12 +108,12 @@ export default function Help() {
                         </div>
                         <div className="rounded-lg border bg-card p-6 shadow-xs">
                             <div className="flex flex-wrap items-center gap-3">
-                                <h3 className="text-base font-semibold text-ink">
+                                <h3 className="text-lg font-semibold text-ink">
                                     Sud qarori yoki ajrimi
                                 </h3>
                                 <AccessBadge access="court" size="sm" />
                             </div>
-                            <p className="mt-2 text-base text-ink-secondary">
+                            <p className="mt-2 max-w-[72ch] text-base leading-[26px] text-ink-secondary">
                                 Sir rejimidagi va maxsus toifadagi ma'lumotlar
                                 uchun talab qilinadi: ish haqi va daromad (soliq
                                 siri), bank hisobvaraqlari (bank siri) va
@@ -121,7 +122,7 @@ export default function Help() {
                                 qabul qilinadi.
                             </p>
                         </div>
-                        <p className="text-sm text-ink-secondary">
+                        <p className="max-w-[72ch] text-sm leading-6 text-ink-secondary">
                             Har bir ma'lumot turi bo'yicha to'liq jadval va
                             qonun havolalari{' '}
                             <Link
@@ -136,6 +137,7 @@ export default function Help() {
                 </Section>
 
                 <Section
+                    className="border-t border-hairline pt-8"
                     title="Muddatlar"
                     description="Advokatura to'g'risidagi Qonun, 7¹-modda"
                 >
@@ -152,7 +154,7 @@ export default function Help() {
                                 <dt className="w-28 shrink-0 text-base font-semibold text-ink tabular-nums">
                                     {term}
                                 </dt>
-                                <dd className="text-base text-ink-secondary">
+                                <dd className="text-base leading-[26px] text-ink-secondary">
                                     {text}
                                 </dd>
                             </div>
@@ -160,8 +162,8 @@ export default function Help() {
                     </dl>
                 </Section>
 
-                <Section title="Maxfiylik va AI">
-                    <div className="flex flex-col gap-4 text-base text-ink-secondary">
+                <Section className="border-t border-hairline pt-8" title="Maxfiylik va AI">
+                    <div className="flex max-w-[72ch] flex-col gap-4 text-base leading-[26px] text-ink-secondary">
                         <p>
                             JShShIR va idora javoblari shifrlangan holda
                             saqlanadi. Ekranda JShShIR maskalangan ko'rinishda
@@ -193,6 +195,7 @@ export default function Help() {
                 </Section>
 
                 <Section
+                    className="border-t border-hairline pt-8"
                     title="Demo ma'lumotlar"
                     description="Bu hakaton demosi: barcha shaxslar, raqamlar va idoralar uydirma"
                 >
@@ -219,7 +222,7 @@ export default function Help() {
                                 </li>
                             ))}
                         </ul>
-                        <p className="text-sm text-ink-secondary">
+                        <p className="max-w-[72ch] text-sm leading-6 text-ink-secondary">
                             Kirish sahifasidagi "Demo rejimi" bo'limida shaxsni
                             tanlab, OneID orqali uning nomidan kiring. Demo ishdagi
                             sud qarori raqami:{' '}

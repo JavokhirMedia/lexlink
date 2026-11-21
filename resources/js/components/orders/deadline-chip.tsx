@@ -1,4 +1,5 @@
 import { CalendarClock, CheckCircle2, TriangleAlert } from "lucide-react";
+import { formatDate } from "@/components/brand/money";
 import { cn } from "@/lib/utils";
 
 const LAW_REF = "Advokatura to'g'risidagi Qonun 7¹-modda";
@@ -19,9 +20,13 @@ type Props = {
     className?: string;
 };
 
+const BASE =
+    "inline-flex w-fit max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-sm border px-2 py-0.5 text-xs";
+
 /**
- * "Javob muddati: 2026-12-05 gacha (Advokatura to'g'risidagi Qonun 7¹-modda)" + remaining days;
- * after completion: "Muddatida javob berildi" / "Muddat buzilgan".
+ * Open request:   "Javob muddati 05.12.2026 gacha · 12 kun qoldi" (+ law ref unless compact).
+ * After answer:   "Muddatida javob berildi" / "Javob muddatidan kech berildi".
+ * Neutral while there is time, warning at <= 2 days, danger when overdue.
  */
 export function DeadlineChip({
     dueAt,
@@ -40,28 +45,31 @@ export function DeadlineChip({
         answeredOnTime !== null &&
         answeredOnTime !== undefined
     ) {
+        const Icon = answeredOnTime ? CheckCircle2 : TriangleAlert;
+
         return (
             <span
                 className={cn(
-                    "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium",
+                    BASE,
                     answeredOnTime
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                        : "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+                        ? "border-success-border bg-success-soft text-success"
+                        : "border-warning-border bg-warning-soft text-warning",
                     className,
                 )}
             >
-                {answeredOnTime ? (
-                    <CheckCircle2 className="size-3.5" aria-hidden />
-                ) : (
-                    <TriangleAlert className="size-3.5" aria-hidden />
-                )}
-                {answeredOnTime
-                    ? "Muddatida javob berildi"
-                    : "Javob muddatidan kech berildi"}
+                <Icon
+                    className="size-3.5 shrink-0"
+                    strokeWidth={1.75}
+                    aria-hidden
+                />
+                <span className="font-medium">
+                    {answeredOnTime
+                        ? "Muddatida javob berildi"
+                        : "Javob muddatidan kech berildi"}
+                </span>
                 {!compact && (
-                    <span className="font-normal opacity-80">
-                        {" "}
-                        · muddat {isoDay(dueAt)}
+                    <span className="tabular-nums opacity-80">
+                        · muddat {formatDate(dueAt)}
                     </span>
                 )}
             </span>
@@ -74,35 +82,46 @@ export function DeadlineChip({
 
     const left = daysLeft(dueAt);
     const overdue = left < 0;
+    const tone = overdue
+        ? "border-danger-border bg-danger-soft text-danger"
+        : left <= 2
+          ? "border-warning-border bg-warning-soft text-warning"
+          : "border-hairline bg-surface text-ink";
 
     return (
         <span
             className={cn(
-                "inline-flex flex-wrap items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
-                overdue
-                    ? "border-danger-border bg-danger-soft text-danger"
-                    : left <= 2
-                      ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-                      : "border-primary/30 bg-primary/5 text-foreground",
+                BASE,
+                tone,
+                compact && "flex-nowrap whitespace-nowrap",
                 className,
             )}
-            title={deadlineLabel ?? undefined}
+            title={deadlineLabel ?? LAW_REF}
         >
-            <CalendarClock className="size-3.5 shrink-0" aria-hidden />
-            <span className="font-medium">
-                Javob muddati: {isoDay(dueAt)} gacha
+            <CalendarClock
+                className={cn(
+                    "size-3.5 shrink-0",
+                    !overdue && left > 2 && "text-ink-muted",
+                )}
+                strokeWidth={1.75}
+                aria-hidden
+            />
+            <span className="tabular-nums">
+                {compact
+                    ? formatDate(dueAt)
+                    : `Javob muddati ${formatDate(dueAt)} gacha`}
             </span>
-            {!compact && (
-                <span className="text-muted-foreground">({LAW_REF})</span>
-            )}
             <span className="font-medium tabular-nums">
                 ·{" "}
                 {overdue
-                    ? `muddat ${Math.abs(left)} kun o'tdi`
+                    ? `${Math.abs(left)} kun o'tdi`
                     : left === 0
                       ? "bugun tugaydi"
                       : `${left} kun qoldi`}
             </span>
+            {!compact && (
+                <span className="text-ink-muted">· {LAW_REF}</span>
+            )}
         </span>
     );
 }

@@ -1,33 +1,32 @@
+import type { ReactNode } from "react";
+import { AuthCard } from "@/layouts/auth/auth-card";
+import { GirihPattern } from "@/layouts/auth/girih-pattern";
+
 /**
- * Auth pages body (rendered inside PublicLayout): a centered 440px card with
- * the page title and description. Login page content goes inside.
+ * Auth pages body (rendered inside PublicLayout): a faint original girih
+ * lattice (4%) behind a centered 440px column. With `title`/`description`
+ * the children go into one AuthCard; without them the page lays out its own
+ * cards (login: OneID card + the secondary demo list below it).
  */
 export default function AuthLayout({
-    title = '',
-    description = '',
+    title = "",
+    description = "",
     children,
 }: {
     title?: string;
     description?: string;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     return (
-        <div className="flex flex-1 items-start justify-center py-4 sm:py-8">
-            <div className="w-full max-w-[440px] rounded-xl border bg-card p-6 shadow-xs sm:p-8">
-                {(title || description) && (
-                    <div className="mb-6 flex flex-col gap-2">
-                        {title && (
-                            <h1 className="text-page-title text-ink">{title}</h1>
-                        )}
-                        {description && (
-                            <p className="text-base text-ink-secondary">
-                                {description}
-                            </p>
-                        )}
-                    </div>
-                )}
-                {children}
-            </div>
+        <div className="relative flex flex-1 flex-col items-center gap-8 sm:py-4">
+            <GirihPattern className="-top-8 -right-4 -left-4 h-[720px] lg:-top-12 lg:-right-8 lg:-left-8" />
+            {title || description ? (
+                <AuthCard title={title} description={description}>
+                    {children}
+                </AuthCard>
+            ) : (
+                children
+            )}
         </div>
     );
 }
