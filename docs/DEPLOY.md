@@ -3,7 +3,25 @@
 One VPS (Ubuntu 24.04), Docker Compose, behind Cloudflare
 (`https://hackathon.john.uz`, orange cloud).
 
-## TL;DR
+## Ish tartibi (CI/CD)
+
+`main` himoyalangan: unga to'g'ridan-to'g'ri push qilib bo'lmaydi (adminlar uchun ham), force-push va o'chirish taqiqlangan.
+
+1. `git switch -c feature/<nom>` — o'zgarishlar feature branch'da.
+2. `git push -u origin feature/<nom>` → GitHub'da `main` ga **pull request**.
+3. PR'da **Tests** ishga tushadi (Pint, `tsc`, build, PHPUnit). Yashil bo'lmaguncha va branch `main` bilan
+   yangilanmaguncha merge tugmasi yopiq; barcha izohlar hal qilingan bo'lishi kerak.
+4. Merge → `main` ga push → **CI/CD** qayta testlaydi va **Deploy to production** bosqichi aynan shu commit'ni
+   serverga chiqaradi, so'ng `https://hackathon.john.uz/up` ni tekshiradi. Branch avtomatik o'chiriladi.
+
+Deploy kaliti (GitHub `production` environment secret'lari, faqat `main` foydalana oladi) serverda faqat
+`/opt/lexlink/bin/ci-deploy` ni ishga tushira oladi (`authorized_keys` forced command; shell, port-forwarding yo'q).
+Server jurnali: `/opt/lexlink/deploy.log`. Server manzili repoda saqlanmaydi.
+
+## Qo'lda amallar (TL;DR)
+
+`deploy.sh` faqat maxsus holatlar uchun (masalan demo ma'lumotlarni qayta seed qilish). Server manzili va kalit
+yo'li git'ga tushmaydigan `.deploy.env` faylida: `LEXLINK_HOST=user@host`, `LEXLINK_SSH_KEY=~/.ssh/<kalit>`.
 
 ```bash
 ./deploy.sh                # pull origin/main on server, build, migrate, restart, health-check
@@ -13,7 +31,7 @@ One VPS (Ubuntu 24.04), Docker Compose, behind Cloudflare
 ```
 
 `deploy.sh` deploys **what is pushed to GitHub `main`**, not your working tree. Commit + push first.
-Requires `~/.ssh/<ssh-key>` locally (override: `LEXLINK_SSH_KEY`, `LEXLINK_HOST`, `LEXLINK_BRANCH`).
+Requires `.deploy.env` (see above); `LEXLINK_BRANCH` overrides the branch.
 `LEXLINK_YES=1 ./deploy.sh --fresh-seed` skips the confirmation prompt.
 
 ## Layout on the server
