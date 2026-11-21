@@ -1,0 +1,43 @@
+flowchart TB
+  user["<b>Brauzer</b><br/>React 19 + Inertia v3 · Echo (WebSocket)"]:::primary
+  cf["<b>Cloudflare</b> · TLS · hackathon.john.uz"]:::ext
+  nginx["<b>nginx</b> 1.27 · :80 / :443<br/>statik fayllar · real IP: <code>CF-Connecting-IP</code>"]
+
+  subgraph rt["Laravel 13 konteynerlari"]
+    direction LR
+    app["<b>app</b> · php-fpm 8.4<br/>controllerlar, policylar"]:::primary
+    horizon["<b>horizon</b> · navbat ishchilari<br/><code>SubmitGovRequestJob</code><br/><code>FetchGovResultJob</code><br/><code>AnalyzeResponseJob</code>"]
+    sched["<b>scheduler</b> · schedule:work<br/><code>lexlink:purge-responses</code> (soatlik)<br/><code>lexlink:recheck-licenses</code> (03:00)"]
+  end
+
+  reverb["<b>reverb</b> :8080<br/>WebSocket server"]
+
+  subgraph svc["Integratsiya qatlami"]
+    direction LR
+    gov["<code>GovDataProvider</code><br/>→ <code>MockGovProvider</code>"]
+    kb["<code>LawKnowledgeBase</code><br/>lex.uz RAG"]
+    gw["<code>AnonymizationGateway</code><br/>→ <code>GeminiClient</code>"]:::primary
+  end
+
+  mock["<b>/mock-gov/v1</b><br/>OneID · advokatlar reyestri · sud qarorlari<br/>e-orderlar · idora so'rovlari"]:::store
+  mysql[("<b>MySQL 8.4</b><br/>asosiy jadvallar, <code>law_chunks</code>, mock jadvallar")]:::store
+  redis[("<b>Redis 7</b><br/>navbat, kesh, sessiya")]:::store
+  gemini["<b>Google Gemini API</b><br/>O'zbekistondan tashqarida<br/>faqat egasizlantirilgan matn"]:::ext
+  real["Real MIP / EGOV adapteri<br/><i>keyingi bosqich</i>"]:::ext
+
+  user -- "HTTPS / WSS" --> cf --> nginx
+  nginx -- FastCGI --> app
+  nginx -- "WS: /app, /apps" --> reverb
+  rt -- "broadcast RequestStatusUpdated" --> reverb
+  rt --> svc
+  rt --> redis
+  rt --> mysql
+  gov -- "HTTP + X-Api-Key" --> mock
+  gov -. "almashtiriladi" .-> real
+  kb --> gw
+  gw -- "muhrlangan AnonymizedPayload" --> gemini
+  mock --> mysql
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef store fill:#EEF4FF,stroke:#0A5BD8,color:#0B2A5B
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

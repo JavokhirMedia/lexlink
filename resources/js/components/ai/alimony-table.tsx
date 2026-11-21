@@ -65,7 +65,7 @@ export function AlimonyTable({
                                     <td className="px-3 py-2">
                                         {o.label}
                                         {active && (
-                                            <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                                            <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">
                                                 ishda
                                             </span>
                                         )}

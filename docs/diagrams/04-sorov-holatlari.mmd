@@ -1,0 +1,32 @@
+stateDiagram-v2
+  direction LR
+  [*] --> draft: create()
+  draft: draft — Loyiha
+  awaiting_signature: awaiting_signature — Imzo kutilmoqda
+  submitted: submitted — Yuborildi
+  processing: processing — Jarayonda
+  completed: completed — Tayyor
+  rejected: rejected — Rad etildi
+  failed: failed — Texnik xato
+
+  draft --> awaiting_signature: requestSignature() / signAndSubmit()
+  awaiting_signature --> draft: qaytarildi
+  awaiting_signature --> submitted: ERI imzo + to'lov
+  submitted --> processing: idora qabul qildi
+  submitted --> rejected
+  submitted --> failed: 3 urinish xato
+  processing --> completed: javob olindi
+  processing --> rejected: idora rad etdi
+  processing --> failed: 30 urinishda javob yo'q
+  completed --> [*]
+  rejected --> [*]: refund
+  failed --> [*]: refund
+
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef bad fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef prim fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  class completed ok
+  class rejected,failed bad
+  class submitted,processing prim
+  classDef neutral fill:#F5F8FF,stroke:#0A5BD8,color:#101828
+  class draft,awaiting_signature neutral

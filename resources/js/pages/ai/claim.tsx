@@ -35,6 +35,7 @@ import type {
     AlimonyCalculation,
     DataRequestType,
 } from "@/types/lexlink";
+import { formatDateTime } from "@/components/brand/money";
 
 type Props = {
     case: {
@@ -114,7 +115,7 @@ export default function ClaimPage({
     return (
         <>
             <Head title="Da'vo arizasi loyihasi" />
-            <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex w-full flex-1 flex-col gap-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-1">
                         <Link
@@ -287,9 +288,7 @@ export default function ClaimPage({
                                     </CardTitle>
                                     {draft && (
                                         <p className="text-xs text-muted-foreground">
-                                            {new Date(
-                                                draft.created_at,
-                                            ).toLocaleString("uz-UZ")}
+                                            {formatDateTime(draft.created_at)}
                                             {draft.model &&
                                                 ` · ${modelLabel(draft.model)}`}
                                         </p>

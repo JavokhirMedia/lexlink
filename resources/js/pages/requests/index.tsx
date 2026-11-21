@@ -83,7 +83,7 @@ export default function RequestsIndex({
     return (
         <>
             <Head title="So'rovlar" />
-            <div className="flex flex-col gap-6 p-4 md:p-6">
+            <div className="flex flex-col gap-8">
                 <PageHeader
                     title="So'rovlar"
                     description="Sizning ishlaringiz bo'yicha idoralarga yuborilgan barcha so'rovlar. Yangi so'rov ish sahifasidan yaratiladi."

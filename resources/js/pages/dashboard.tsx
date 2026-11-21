@@ -13,6 +13,7 @@ import type {
     DataRequestType,
     RequestStatusUpdatedEvent,
 } from "@/types/lexlink";
+import { formatDateTime, formatMoney, formatNumber } from "@/components/brand/money";
 
 type RequestRow = {
     id: number;
@@ -66,7 +67,7 @@ type Props = {
     advocates?: AdvocateRow[];
 };
 
-const nf = new Intl.NumberFormat("uz-UZ");
+const nf = { format: (n: number) => formatNumber(n) };
 const rtf = new Intl.RelativeTimeFormat("uz", { numeric: "auto" });
 
 function ago(iso: string): string {
@@ -85,10 +86,7 @@ function ago(iso: string): string {
         return rtf.format(Math.round(diff / 3600), "hour");
     }
 
-    return new Intl.DateTimeFormat("uz-UZ", {
-        dateStyle: "short",
-        timeStyle: "short",
-    }).format(new Date(iso));
+    return formatDateTime(iso);
 }
 
 const statusTone: Record<DataRequestStatus, string> = {
@@ -136,7 +134,7 @@ export default function Dashboard(props: Props) {
     return (
         <>
             <Head title="Bosh sahifa" />
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+            <div className="flex w-full flex-col gap-8">
                 <header className="flex flex-wrap items-end justify-between gap-2">
                     <div>
                         <h1 className="text-xl font-semibold tracking-tight">
@@ -173,12 +171,12 @@ export default function Dashboard(props: Props) {
                     />
                     <Kpi
                         label="Balans"
-                        value={`${nf.format(kpi.balance)} so'm`}
+                        value={formatMoney(kpi.balance)}
                         href={billingIndex().url}
                     />
                 </dl>
 
-                <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                     <div className="flex flex-col gap-6">
                         {isAdvocate ? (
                             <Panel

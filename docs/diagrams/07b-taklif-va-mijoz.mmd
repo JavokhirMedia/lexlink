@@ -1,0 +1,42 @@
+flowchart TD
+  subgraph inv["Yurist taklifi"]
+    direction TB
+    t1["Advokat: <code>POST /team/invites</code><br/><code>advocate_lawyer_links</code> (token, pending)<br/>audit: <b>LawyerInvited</b>"]:::primary
+    t2["Yurist OneID orqali kiradi →<br/><code>GET /invites/{token}</code>"]
+    t3{{"Taklif pending, o'zi emas,<br/>allaqachon a'zo emas?"}}
+    t3n["Rad: bekor qilingan /<br/>boshqa foydalanuvchi qabul qilgan"]:::blocked
+    t4["<code>POST /invites/{token}/accept</code><br/>role null → <b>lawyer</b>; status accepted<br/>audit: <b>LawyerJoined</b>"]:::ok
+    t5["Ishga a'zo qilish: <code>case_members</code><br/>can_view_responses (advokat beradi)<br/>audit: <b>PermissionChanged</b>"]
+    t1 --> t2 --> t3
+    t3 -- yo'q --> t3n
+    t3 -- ha --> t4 --> t5
+  end
+
+  subgraph cli["Mijoz kirishi"]
+    direction TB
+    k1["<b>Mijoz (ishonch bildiruvchi)</b><br/>Advokat: <code>POST /cases/{id}/client-links</code><br/>tasdiqlangan order yoki reyestrdagi o'z faol orderi<br/>→ <code>client_pinfl_hash</code>, token (48)<br/>audit: <b>ClientLinkCreated</b>"]:::primary
+    k2["Mijoz havolani ochadi:<br/><code>GET /client/access/{token}</code> (OneID login talab)"]
+    k3{{"Havola mavjud va<br/>bekor qilinmagan?"}}
+    k4{{"role = null yoki client?"}}
+    k5{{"OneID <code>pinfl_hash</code> =<br/><code>client_pinfl_hash</code>?"}}
+    k6{{"Order reyestrda hali active?<br/><code>GET /advocate-orders/{n}</code>"}}
+    k7["role null → <b>client</b>; granted_at<br/>audit: <b>ClientAccessGranted</b>"]:::ok
+    k8(["<code>/client/cases/{id}</code><br/>faqat o'qish, audit: <b>ClientViewed</b>"]):::ok
+    kn["<code>client/denied</code> 403<br/>audit: <b>ClientAccessDenied</b>"]:::blocked
+    ku["503: reyestr bilan aloqa yo'q"]:::warn
+    k1 --> k2 --> k3
+    k3 -- yo'q --> kn
+    k3 -- ha --> k4
+    k4 -- "yo'q (advokat/yurist)" --> kn
+    k4 -- ha --> k5
+    k5 -- yo'q --> kn
+    k5 -- ha --> k6
+    k6 -- "yo'q / cancelled" --> kn
+    k6 -- xato --> ku
+    k6 -- ha --> k7 --> k8
+  end
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef warn fill:#FFF6E5,stroke:#DC8A00,color:#7A4A00

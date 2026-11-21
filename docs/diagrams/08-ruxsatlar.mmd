@@ -1,0 +1,42 @@
+flowchart TD
+  q(["Foydalanuvchi so'rov / javob sahifasini ochadi"]):::primary
+  r0{{"role?"}}
+
+  adm["<b>Admin</b><br/><code>DataRequestPolicy::view</code> = true<br/><code>viewResponses</code> = <b>false</b>"]
+  admo["Faqat metadata: tur, holat, sanalar,<br/>niqoblangan JShShIR — <b>payload hech qachon</b>"]:::warn
+
+  cl["<b>Mijoz</b> (<code>role:client</code>)<br/><code>/client/cases/{id}</code><br/>faol <code>case_client_links</code> kerak"]
+  clo["<code>ClientPresenter</code>: holatlar (draftlarsiz), muddat,<br/>PII'siz <code>summary_items</code> + <b>niqoblangan</b> AI xulosa<br/>payload / PDF / JShShIR <b>yo'q</b>; audit: <b>ClientViewed</b>"]:::warn
+
+  m{{"Ish a'zosimi?<br/><code>case_members</code>"}}
+  no["403 — kirish yo'q"]:::blocked
+  ra{{"a'zolik roli"}}
+  adv["<b>Advokat</b> (a'zo, role advocate)<br/><code>LegalCasePolicy::viewResponses</code> = true"]
+  law{{"<b>Yurist</b>:<br/><code>can_view_responses</code>?"}}
+  lawm["Faqat metadata<br/>(javob «cheklangan»)"]:::warn
+  sec{{"<code>secrecy_declared_at</code> bormi?<br/>advokat sirini saqlash majburiyati"}}
+  secn["403: «avval advokat sirini saqlash<br/>majburiyatini qabul qiling»<br/><code>POST /cases/{id}/secrecy-declaration</code>"]:::blocked
+
+  full["<b>To'liq ko'rish</b><br/>summary → audit <b>ViewResponse</b><br/>payload JSON → <b>ViewPayload</b><br/>PDF → <b>DownloadPdf</b><br/>AI: placeholderlar mahalliy tiklanadi (JShShIR niqobli)"]:::ok
+  pur{{"Javob purge qilinganmi?"}}
+  gone["410 — to'liq javob o'chirilgan<br/>(summary + audit qoladi)"]:::warn
+
+  q --> r0
+  r0 -- admin --> adm --> admo
+  r0 -- client --> cl --> clo
+  r0 -- "advocate / lawyer" --> m
+  m -- yo'q --> no
+  m -- ha --> ra
+  ra -- advocate --> adv --> pur
+  ra -- lawyer --> law
+  law -- yo'q --> lawm
+  law -- ha --> sec
+  sec -- yo'q --> secn
+  sec -- ha --> pur
+  pur -- yo'q --> full
+  pur -- ha --> gone
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef warn fill:#FFF6E5,stroke:#DC8A00,color:#7A4A00

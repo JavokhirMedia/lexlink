@@ -1,11 +1,15 @@
 /**
  * <PageHeader title="Ishlar" description="..." actions={<Button/>} />
  *
+ * Page title block (docs/DESIGN.md "Content"): title 28/34 600, description
+ * 16 secondary, actions right (wrap under on mobile). Breadcrumbs are drawn by
+ * the app shell above it, so pages never render their own.
+ *
  * Props:
- *   title:        ReactNode — rendered as h1 in the serif display face
- *   description?: ReactNode — one line of muted text under the title
- *   meta?:        ReactNode — small row under the description (badges, IDs)
- *   actions?:     ReactNode — right-aligned buttons (wraps under on mobile)
+ *   title:        ReactNode — rendered as the page h1
+ *   description?: ReactNode — one or two lines of secondary text
+ *   meta?:        ReactNode — row under the description (RegistryChip, StatusBadge…)
+ *   actions?:     ReactNode — right-aligned buttons, primary last
  *   className?:   string
  *   children?:    ReactNode — optional extra content below (e.g. tabs)
  */
@@ -28,19 +32,17 @@ export function PageHeader({
     children?: ReactNode;
 }) {
     return (
-        <div className={cn('border-b pb-5', className)}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0 space-y-1.5">
-                    <h1 className="font-display text-[26px] leading-tight font-semibold text-foreground">
-                        {title}
-                    </h1>
+        <header className={cn('flex flex-col gap-4', className)}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-2">
+                    <h1 className="text-page-title text-ink">{title}</h1>
                     {description && (
-                        <p className="max-w-2xl text-sm text-muted-foreground">
+                        <p className="max-w-3xl text-base text-ink-secondary">
                             {description}
                         </p>
                     )}
                     {meta && (
-                        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-ink-secondary">
                             {meta}
                         </div>
                     )}
@@ -51,7 +53,7 @@ export function PageHeader({
                     </div>
                 )}
             </div>
-            {children && <div className="mt-4">{children}</div>}
-        </div>
+            {children}
+        </header>
     );
 }

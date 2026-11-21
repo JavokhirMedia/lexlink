@@ -1,0 +1,47 @@
+flowchart TD
+  l1["<code>GET /login</code><br/>demo personalar (login_hint)"]:::primary
+  l2["<code>GET /auth/oneid/redirect</code><br/>state → sessiya"]
+  l3["<code>GET /mock-gov/v1/oneid/authorize</code><br/>response_type=code, scope=openid profile"]
+  l4["<code>GET /auth/oneid/callback?code&state</code>"]
+  c1{{"state sessiyadagiga<br/>mos (hash_equals)?"}}
+  c2["<code>GovDataProvider::oneIdUser(code)</code><br/><code>POST /oneid/token</code> (client creds)<br/>→ <code>GET /oneid/userinfo</code> (Bearer)"]
+  c3{{"JShShIR to'g'ri va<br/><code>sub</code> bor?"}}
+  u1["Foydalanuvchi: <code>oneid_sub</code> → <code>pinfl_hash</code> → yangi<br/>pinfl (shifrlangan), ism, telefon saqlanadi<br/><code>Auth::login</code>, audit: <b>Login</b>"]
+  a1{{"role = advocate?"}}
+  lc["<code>LicenseChecker::refresh</code><br/><code>GET /advocates/{license}</code>"]
+  r1{{"role bormi?"}}
+  err["<code>/login</code> + xato xabari"]:::blocked
+
+  o1["<code>/onboarding/role</code>"]
+  o2{{"Tanlov"}}
+  ol["role = <b>lawyer</b>"]
+  oa["<code>/onboarding/license</code><br/>litsenziya raqami"]
+  ov{{"Reyestrda bor? PINFL OneID'ga mos?<br/>status = active?"}}
+  ovn["Rad: topilmadi /<br/>boshqa shaxsga tegishli / faol emas"]:::blocked
+  ovy["<code>AdvocateProfile</code> active,<br/>role = <b>advocate</b>, audit: <b>LicenseVerified</b>"]:::ok
+  dash(["<code>/dashboard</code>"]):::ok
+
+  rev["revoked / suspended / pinfl_mismatch →<br/><code>license_status</code> yangilanadi,<br/>audit: <b>LicenseRevoked</b> — <b>imzolash huquqi yo'q</b><br/>(<code>can_sign = false</code>)"]:::blocked
+  daily["<code>lexlink:recheck-licenses</code><br/>har kuni 03:00 + imzolash oldidan"]:::ext
+
+  l1 --> l2 --> l3 --> l4 --> c1
+  c1 -- yo'q --> err
+  c1 -- ha --> c2 --> c3
+  c2 -- "GovApiException" --> err
+  c3 -- yo'q --> err
+  c3 -- ha --> u1 --> a1
+  a1 -- ha --> lc --> r1
+  a1 -- yo'q --> r1
+  lc -. "faol emas" .-> rev
+  daily -.-> lc
+  r1 -- "bor (intended URL)" --> dash
+  r1 -- "null" --> o1 --> o2
+  o2 -- Yurist --> ol --> dash
+  o2 -- Advokat --> oa --> ov
+  ov -- yo'q --> ovn
+  ov -- ha --> ovy --> dash
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

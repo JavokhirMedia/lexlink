@@ -19,7 +19,7 @@ export function Breadcrumbs({
         <>
             {breadcrumbs.length > 0 && (
                 <Breadcrumb aria-label="Navigatsiya yo'li">
-                    <BreadcrumbList className="flex-nowrap text-[13px]">
+                    <BreadcrumbList className="flex-nowrap text-sm">
                         {breadcrumbs.map((item, index) => {
                             const isLast = index === breadcrumbs.length - 1;
 

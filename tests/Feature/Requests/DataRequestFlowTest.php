@@ -162,6 +162,19 @@ class DataRequestFlowTest extends TestCase
         $this->assertSame(0, $this->gov->submitCalls);
     }
 
+    public function test_signing_fails_closed_when_licence_registry_is_down(): void
+    {
+        $this->basis();
+        $r = $this->draft('salary');
+        $this->gov->registryDown = true;
+
+        $this->sign($r)->assertSessionHasErrors('license');
+
+        $this->assertSame(DataRequestStatus::Draft, $r->fresh()->status);
+        $this->assertSame(0, $this->gov->submitCalls);
+        $this->assertTrue(AuditLog::where('action', AuditAction::RequestBlocked)->where('meta->reason', 'license_registry_unavailable')->exists());
+    }
+
     public function test_happy_path_submit_to_completed(): void
     {
         $this->basis();
@@ -317,6 +330,10 @@ class DataRequestFlowTest extends TestCase
         $this->assertSame(12_000_000, $resp->summary['total']); // summary kept
         Storage::disk('local')->assertMissing("responses/request-{$r->id}.pdf");
         $this->assertTrue(AuditLog::where('action', AuditAction::ResponsePurged)->exists());
+        // the AI placeholder->real-value map is wiped together with the payload
+        foreach (\App\Models\AiAnalysis::where('data_request_id', $r->id)->get() as $a) {
+            $this->assertArrayNotHasKey('_pii', (array) $a->structured);
+        }
 
         $this->actingAs($this->advocate)->getJson(route('requests.payload', $r))->assertStatus(410);
         $this->actingAs($this->advocate)->get(route('requests.show', $r))->assertOk()

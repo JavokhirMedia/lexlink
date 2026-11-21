@@ -31,6 +31,16 @@ class PurgeExpiredResponses extends Command
                     }
                     $resp->forceFill(['payload' => null, 'pdf_path' => null, 'purged_at' => now()])->save();
 
+                    // AI analyses of this response keep only the masked text: drop the placeholder->real-value map.
+                    \App\Models\AiAnalysis::where('data_request_id', $resp->data_request_id)->get()
+                        ->each(function ($a) {
+                            $s = (array) ($a->structured ?? []);
+                            if (array_key_exists('_pii', $s)) {
+                                unset($s['_pii']);
+                                $a->forceFill(['structured' => $s])->save();
+                            }
+                        });
+
                     $audit->log(AuditAction::ResponsePurged, $resp, [
                         'data_request_id' => $resp->data_request_id,
                         'expired_at' => $resp->expires_at?->toIso8601String(),

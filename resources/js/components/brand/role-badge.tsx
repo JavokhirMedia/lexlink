@@ -9,6 +9,7 @@
  */
 import { BadgeCheck, CircleSlash, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RegistryChip } from './registry-chip';
 import type { SharedAuthUser, UserRole } from '@/types/lexlink';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -36,14 +37,10 @@ export function RoleBadge({
     return (
         <span
             className={cn(
-                'inline-flex items-center rounded-sm px-1.5 py-px text-[11px] font-medium',
+                'inline-flex h-6 items-center rounded-sm px-2 text-xs font-medium',
                 variant === 'light'
-                    ? role === 'advocate'
-                        ? 'bg-navy-soft text-navy'
-                        : 'bg-muted text-muted-foreground'
-                    : role === 'advocate'
-                      ? 'bg-gold/15 text-gold'
-                      : 'bg-white/10 text-white/80',
+                    ? 'bg-raised text-ink-secondary'
+                    : 'bg-white/10 text-white/80',
                 className,
             )}
         >
@@ -80,21 +77,19 @@ export function LicenseStatus({
                   cfg.tone
               ]
             : {
-                  ok: 'text-[oklch(0.8_0.12_155)]',
-                  warn: 'text-[oklch(0.82_0.12_75)]',
-                  bad: 'text-[oklch(0.75_0.16_25)]',
+                  ok: 'text-white',
+                  warn: 'text-white',
+                  bad: 'text-white',
               }[cfg.tone];
 
     return (
         <span
             className={cn(
-                'inline-flex min-w-0 items-center gap-1.5 text-xs',
+                'inline-flex min-w-0 items-center gap-2 text-meta',
                 className,
             )}
         >
-            <span className="truncate font-mono tabular-nums">
-                {license.number}
-            </span>
+            <RegistryChip value={license.number} kind="license" size="sm" />
             <span className={cn('inline-flex items-center gap-1', toneClass)}>
                 <Icon aria-hidden="true" className="size-3.5" />
                 {cfg.text}

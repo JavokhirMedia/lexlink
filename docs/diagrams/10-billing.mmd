@@ -1,0 +1,56 @@
+flowchart TD
+  subgraph ch["Yechish"]
+  direction TB
+  q(["<code>BillingService::quoteForRequest</code> (forma) /<br/><code>chargeForRequest</code> (imzolashda, DB tranzaksiya)"]):::primary
+  lk["<code>data_requests</code> qatori lock<br/><code>lockForUpdate</code>"]
+  ic{{"Allaqachon to'langanmi?<br/>charge soni &gt; refund soni"}}
+  skip["O'tkazib yuboriladi (idempotent)"]:::ok
+  sub{{"Obuna limiti bormi?<br/><code>used_requests &lt; included_requests</code>"}}
+  s1["<code>used_requests++</code><br/>transactions: charge, amount 0<br/>cost = 0, charged_from_subscription = true"]:::ok
+  pr{{"<code>plans.extra_price</code> = null?"}}
+  pn["<code>InsufficientBalance::planDoesNotAllow</code>"]:::blocked
+  bal{{"wallet.balance ≥ extra_price?"}}
+  bn["<code>InsufficientBalance::forAmount</code><br/>→ 422 «Balans yetarli emas»"]:::blocked
+  w1["wallet −extra_price (lock)<br/>transactions: charge, balance_after"]:::ok
+  au["audit: <b>Charge</b>"]
+
+  q --> lk --> ic
+  ic -- ha --> skip
+  ic -- yo'q --> sub
+  sub -- ha --> s1 --> au
+  sub -- yo'q --> pr
+  pr -- ha --> pn
+  pr -- yo'q --> bal
+  bal -- yo'q --> bn
+  bal -- ha --> w1 --> au
+  end
+
+  subgraph rf["Qaytarish"]
+    direction TB
+    r0{{"<code>refundForRequest</code> (rejected / failed)<br/>Hali to'langan holatdami?"}}
+    r0n["Hech narsa qilinmaydi<br/>(ikkinchi chaqiruv — idempotent)"]:::ok
+    r1{{"charge.amount = 0?"}}
+    r2["Obuna limiti tiklanadi<br/><code>used_requests--</code> (shu davrda bo'lsa)"]:::ok
+    r3["Summa hamyonga qaytadi"]:::ok
+    r4["transactions: refund · audit: <b>Refund</b>"]
+    r0 -- yo'q --> r0n
+    r0 -- ha --> r1
+    r1 -- ha --> r2 --> r4
+    r1 -- yo'q --> r3 --> r4
+  end
+
+  subgraph tp["Balans to'ldirish"]
+    direction TB
+    p1["<code>/billing/checkout</code><br/>Click / Payme (mock)"]:::primary
+    p2["<code>POST /billing/mock/{click|payme}/prepare</code>"]
+    p3["<code>POST /billing/mock/{provider}/complete</code><br/><code>MockPaymentProvider</code>"]
+    p4["<code>BillingService::topup</code><br/>(provider, external_id) bo'yicha idempotent<br/>audit: <b>WalletTopup</b>"]:::ok
+    p1 --> p2 --> p3 --> p4
+  end
+
+  note["Javob hech qachon pullik emas:<br/>billing faqat yuborishni va AI qo'shimchalarini cheklaydi<br/>(<code>chargeAi</code>: included_ai, keyin <code>prices.ai_extra</code>)"]:::ext
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

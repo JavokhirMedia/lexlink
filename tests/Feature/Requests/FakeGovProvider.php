@@ -19,6 +19,8 @@ class FakeGovProvider implements GovDataProvider
 
     public ?string $rejectWith = null;
 
+    public bool $registryDown = false;
+
     public function oneIdUser(string $code, string $redirectUri): array
     {
         return [];
@@ -26,6 +28,9 @@ class FakeGovProvider implements GovDataProvider
 
     public function advocateLicense(string $licenseNumber): ?array
     {
+        if ($this->registryDown) {
+            throw new \App\Services\Gov\GovApiException('registry unavailable');
+        }
         $profile = AdvocateProfile::with('user')->where('license_number', $licenseNumber)->first();
 
         return $profile ? [

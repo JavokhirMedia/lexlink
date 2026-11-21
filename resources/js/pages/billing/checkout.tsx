@@ -19,6 +19,7 @@ import {
     index as billingIndex,
 } from "@/routes/billing";
 import { complete, prepare } from "@/routes/billing/mock";
+import { formatNumber } from "@/components/brand/money";
 
 type Props = {
     provider: { code: "click" | "payme"; name: string };
@@ -43,7 +44,7 @@ type Completed = {
     redirect: string;
 };
 
-const nf = new Intl.NumberFormat("uz-UZ");
+const nf = { format: (n: number) => formatNumber(n) };
 
 const formatCard = (v: string) =>
     v
@@ -100,7 +101,7 @@ export default function Checkout({
     return (
         <>
             <Head title={`${provider.name} orqali to'lov`} />
-            <div className="flex min-h-full flex-1 items-start justify-center bg-muted/40 p-4 md:p-10">
+            <div className="flex flex-1 items-start justify-center">
                 <div className="w-full max-w-md overflow-hidden rounded-xl border bg-card shadow-sm">
                     <div className="flex items-center justify-between border-b px-5 py-4">
                         <div className="flex items-center gap-2">

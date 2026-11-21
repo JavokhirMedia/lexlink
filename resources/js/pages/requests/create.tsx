@@ -280,7 +280,7 @@ export default function RequestCreate({
             <Head title="Yangi so'rov" />
             <form
                 onSubmit={submit("draft")}
-                className="flex flex-col gap-6 p-4 md:p-6"
+                className="flex flex-col gap-8"
             >
                 <PageHeader
                     title="Yangi so'rov"
@@ -700,7 +700,7 @@ export default function RequestCreate({
                                         rows={14}
                                         className={cn(
                                             textareaClass,
-                                            "font-serif leading-relaxed",
+                                            "leading-relaxed",
                                         )}
                                         value={data.request_text}
                                         onChange={(e) =>

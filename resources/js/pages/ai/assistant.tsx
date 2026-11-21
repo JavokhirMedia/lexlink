@@ -89,7 +89,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
     return (
         <>
             <Head title="Huquqiy yordamchi" />
-            <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 p-4 md:p-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="grid w-full flex-1 gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div className="flex min-h-[70vh] flex-col rounded-xl border bg-card">
                     <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
                         <div>
@@ -174,7 +174,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                                                     text={m.answer.disclaimer}
                                                     className="flex-1"
                                                 />
-                                                <span className="text-[11px] text-muted-foreground">
+                                                <span className="text-xs text-muted-foreground">
                                                     {modelLabel(m.answer.model)}
                                                 </span>
                                             </div>

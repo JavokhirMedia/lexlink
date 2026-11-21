@@ -1,0 +1,79 @@
+erDiagram
+  mock_persons ||--o{ mock_advocate_licenses : "pinfl"
+  mock_persons ||--o{ mock_court_decisions : "subject_pinfl"
+  mock_court_cases ||--o{ mock_court_decisions : "case_number"
+  mock_persons ||--o{ mock_salaries : "pinfl"
+  mock_persons ||--o{ mock_properties : "pinfl"
+  mock_persons ||--o{ mock_vehicles : "pinfl"
+  mock_persons ||--o| mock_tax_profiles : "pinfl"
+  mock_persons ||--o{ mock_business_shares : "pinfl"
+  mock_persons ||--o{ mock_bank_accounts : "pinfl"
+  mock_persons ||--o{ mock_border_crossings : "pinfl"
+  mock_advocate_licenses ||--o{ mock_advocate_orders : "license_number"
+  mock_persons ||--o{ mock_advocate_orders : "client_pinfl"
+  mock_persons ||--o{ mock_gov_requests : "subject_pinfl"
+  mock_persons ||--o{ mock_oneid_codes : "pinfl"
+
+  mock_persons {
+    string pinfl UK
+    string last_name
+    string first_name
+    date birth_date
+  }
+  mock_advocate_licenses {
+    string license_number UK
+    string full_name
+    string status "active|revoked|suspended"
+  }
+  mock_court_cases {
+    string case_number UK
+    json parties
+    json decisions
+  }
+  mock_court_decisions {
+    string number
+    json allowed_types
+    date expires_at
+    string requester_license
+  }
+  mock_advocate_orders {
+    string order_number UK
+    string license_number
+    string client_pinfl
+    string status "active|cancelled"
+  }
+  mock_gov_requests {
+    string type
+    string status "accepted|processing|completed|rejected"
+  }
+  mock_oneid_codes {
+    string code
+    timestamp expires_at
+  }
+  mock_salaries {
+    string period
+    bigint amount
+  }
+  mock_properties {
+    string cadastral_number
+  }
+  mock_vehicles {
+    string plate
+  }
+  mock_tax_profiles {
+    string tin
+    bigint tax_debt
+  }
+  mock_business_shares {
+    string company_tin
+    decimal share_percent
+  }
+  mock_bank_accounts {
+    string bank_name
+    string account_mask
+    bigint balance
+  }
+  mock_border_crossings {
+    string direction
+    string country
+  }

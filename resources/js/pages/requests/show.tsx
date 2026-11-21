@@ -138,7 +138,7 @@ export default function RequestShow(props: Props) {
     return (
         <>
             <Head title={`So'rov #${r.id}`} />
-            <div className="flex flex-col gap-6 p-4 md:p-6">
+            <div className="flex flex-col gap-8">
                 <PageHeader
                     title={`${r.type_label} — so'rov #${r.id}`}
                     description={
@@ -345,7 +345,7 @@ export default function RequestShow(props: Props) {
                                     {r.purpose}
                                 </p>
                             )}
-                            <div className="rounded-md border bg-muted/30 p-4 font-serif text-sm leading-relaxed whitespace-pre-wrap">
+                            <div className="rounded-md border bg-muted/30 p-4 text-sm leading-relaxed whitespace-pre-wrap">
                                 {r.request_text || (
                                     <span className="text-muted-foreground">
                                         Matn kiritilmagan
@@ -432,7 +432,7 @@ export default function RequestShow(props: Props) {
                                                 {formatDateTime(r.signed_at)}
                                             </span>
                                             {r.signature && (
-                                                <span className="block font-mono text-[11px] break-all text-muted-foreground">
+                                                <span className="block font-mono text-xs break-all text-muted-foreground">
                                                     {r.signature.slice(0, 32)}…
                                                 </span>
                                             )}

@@ -9,9 +9,15 @@ import {
     Wallet,
 } from "lucide-react";
 import { dashboard, legalMap } from "@/routes";
+import { index as clientIndex } from "@/routes/client";
 import type { NavItem, UserRole } from "@/types";
 
 type AppNavItem = NavItem & { roles?: UserRole[] };
+
+/** Clients (ishonch bildiruvchi) only see their own cases. */
+export const CLIENT_NAV_ITEMS: NavItem[] = [
+    { title: "Mening ishlarim", href: clientIndex(), icon: FolderOpen },
+];
 
 /** Sidebar / header navigation (ARCHITECTURE.md). Hrefs are plain strings where routes are owned by other modules. */
 export const APP_NAV_ITEMS: AppNavItem[] = [
@@ -26,6 +32,10 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
 ];
 
 export function navItemsFor(role: UserRole | null | undefined): NavItem[] {
+    if (role === "client") {
+        return CLIENT_NAV_ITEMS;
+    }
+
     return APP_NAV_ITEMS.filter(
         (item) => !item.roles || (role ? item.roles.includes(role) : false),
     ).map((item) => ({ title: item.title, href: item.href, icon: item.icon }));

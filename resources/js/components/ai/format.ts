@@ -1,7 +1,8 @@
-const money = new Intl.NumberFormat('uz-UZ', { maximumFractionDigits: 0 });
+import { formatMoney } from '@/components/brand/money';
+
 
 export function formatSum(value: number | null | undefined): string {
-    return value == null ? '—' : `${money.format(value)} so'm`;
+    return formatMoney(value);
 }
 
 /** Client-side fallback: restore [SHAXS_1]-style placeholders from structured._pii (names / masked ids only). */

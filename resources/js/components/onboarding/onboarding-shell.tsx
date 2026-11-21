@@ -1,9 +1,11 @@
-import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
-import { Logo } from '@/components/brand/logo';
-import { home, logout } from '@/routes';
+import PublicLayout from '@/layouts/public-layout';
 
-/** Centered, sidebar-less frame for onboarding and invite pages (user may not have a role yet). */
+/**
+ * Onboarding and invite pages: public shell + one centered 672px card
+ * (the user may not have a role yet, so no sidebar). Sign-out lives in the
+ * header user menu.
+ */
 export function OnboardingShell({
     title,
     description,
@@ -16,32 +18,16 @@ export function OnboardingShell({
     children: ReactNode;
 }) {
     return (
-        <div className="flex min-h-svh flex-col items-center bg-muted px-4 py-10 md:py-16">
-            <div className="w-full max-w-2xl">
-                <div className="mb-8 flex items-center justify-between">
-                    <Link href={home()}>
-                        <Logo />
-                    </Link>
-                    <Link
-                        href={logout()}
-                        as="button"
-                        className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        Chiqish
-                    </Link>
-                </div>
-                <div className="rounded-lg border bg-card p-6 md:p-8">
-                    <div className="mb-6 space-y-1.5">
+        <PublicLayout>
+            <div className="mx-auto w-full max-w-2xl">
+                <div className="rounded-xl border bg-card p-6 shadow-xs md:p-8">
+                    <div className="mb-6 flex flex-col gap-2">
                         {step && (
-                            <p className="text-xs font-medium text-muted-foreground">
-                                {step}
-                            </p>
+                            <p className="text-meta text-ink-secondary">{step}</p>
                         )}
-                        <h1 className="font-display text-2xl font-semibold">
-                            {title}
-                        </h1>
+                        <h1 className="text-page-title text-ink">{title}</h1>
                         {description && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-base text-ink-secondary">
                                 {description}
                             </p>
                         )}
@@ -49,6 +35,6 @@ export function OnboardingShell({
                     {children}
                 </div>
             </div>
-        </div>
+        </PublicLayout>
     );
 }

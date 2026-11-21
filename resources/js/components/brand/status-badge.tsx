@@ -47,11 +47,11 @@ const CONFIG: Record<DataRequestStatus, { tone: Tone; icon: LucideIcon }> = {
 };
 
 const TONE_CLASSES: Record<Tone, string> = {
-    neutral: 'border-border bg-muted text-muted-foreground',
-    warning: 'border-warning-border bg-warning-soft text-warning',
-    info: 'border-info-border bg-info-soft text-info',
-    success: 'border-success-border bg-success-soft text-success',
-    danger: 'border-danger-border bg-danger-soft text-danger',
+    neutral: 'bg-raised text-ink-secondary',
+    warning: 'bg-warning-soft text-warning',
+    info: 'bg-brand-soft text-brand',
+    success: 'bg-success-soft text-success',
+    danger: 'bg-danger-soft text-danger',
 };
 
 export function statusTone(status: DataRequestStatus): Tone {
@@ -76,20 +76,19 @@ export function StatusBadge({
         <span
             data-status={status}
             className={cn(
-                'inline-flex w-fit shrink-0 items-center gap-1.5 rounded-sm border font-medium whitespace-nowrap',
-                size === 'sm'
-                    ? 'px-1.5 py-px text-[11px]'
-                    : 'px-2 py-0.5 text-xs',
+                'inline-flex w-fit shrink-0 items-center gap-1.5 rounded-sm font-medium whitespace-nowrap',
+                size === 'sm' ? 'h-6 px-2 text-xs' : 'h-7 px-2.5 text-sm',
                 TONE_CLASSES[cfg.tone],
                 className,
             )}
         >
             <Icon
                 aria-hidden="true"
+                strokeWidth={1.75}
                 className={cn(
-                    size === 'sm' ? 'size-3' : 'size-3.5',
+                    size === 'sm' ? 'size-3.5' : 'size-4',
                     status === 'processing' &&
-                        'animate-spin [animation-duration:1.6s] motion-reduce:animate-none',
+                        'animate-spin [animation-duration:2s] motion-reduce:animate-none',
                 )}
             />
             {label || STATUS_LABELS[status] || status}

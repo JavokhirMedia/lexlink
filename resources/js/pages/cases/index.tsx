@@ -78,7 +78,7 @@ export default function CasesIndex({
     return (
         <>
             <Head title="Ishlar" />
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+            <div className="flex w-full flex-col gap-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">

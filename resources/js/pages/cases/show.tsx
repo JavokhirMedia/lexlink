@@ -46,6 +46,7 @@ import type {
     LegalBasisType,
     LegalCase,
 } from "@/types/lexlink";
+import { formatDate } from "@/components/brand/money";
 
 type CaseDetail = LegalCase & {
     category_label: string | null;
@@ -163,12 +164,7 @@ type Props = {
 
 type Tab = "bases" | "requests" | "team";
 
-const dateFmt = new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-});
-const fmtDate = (v: string | null) => (v ? dateFmt.format(new Date(v)) : "—");
+const fmtDate = (v: string | null) => formatDate(v);
 
 const STATUS_META: Record<
     LegalBasis["verification_status"],
@@ -222,7 +218,7 @@ export default function CaseShow(props: Props) {
     return (
         <>
             <Head title={legalCase.title} />
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+            <div className="flex w-full flex-col gap-8">
                 <CaseHeader
                     legalCase={legalCase}
                     members={members}

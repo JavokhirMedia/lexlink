@@ -1,0 +1,35 @@
+flowchart TD
+  dev["Lokal: commit"]:::primary
+  gh["GitHub <code>main</code><br/>(<code>git push</code>)"]
+  ds["<code>./deploy.sh</code><br/>[--fresh-seed | --no-build | --logs]"]:::primary
+  key["ixtiyoriy: <code>GEMINI_API_KEY</code><br/>../creds.txt → ssh stdin (chop etilmaydi)"]:::ext
+  ssh["SSH → <code>root@VPS</code><br/>(<code>~/.ssh/<ssh-key></code>)"]
+  pull["<code>/opt/lexlink/src</code><br/>git fetch + reset --hard origin/main<br/>(read-only deploy key)"]
+  env["<code>/opt/lexlink/.env</code> yo'q bo'lsa —<br/>tasodifiy sirlar bilan yaratiladi; chmod 640<br/>origin sertifikati yo'q bo'lsa — self-signed"]
+  build{{"--no-build?"}}
+  b1["<code>docker compose build</code><br/>base → vendor → assets (npm build + Wayfinder) → app → nginx"]
+  db["<code>up -d --wait mysql redis</code>"]
+  mig["<code>php artisan migrate --force</code><br/>(bir martalik konteyner)"]
+  fresh{{"--fresh-seed?"}}
+  fs["<code>migrate:fresh --seed</code><br/>APP_ENV=demo («wipe» tasdig'i)"]:::blocked
+  lex["<code>lex:import --from-snapshot</code><br/><code>lex:embed</code> (xato bo'lsa davom etadi)"]
+  up["<code>up -d --force-recreate</code><br/>app · horizon · reverb · scheduler · nginx<br/>(entrypoint: <code>php artisan optimize</code>)"]
+  hc{{"<code>curl localhost/up</code><br/>200?"}}
+  ok(["OK — hackathon.john.uz ishlaydi"]):::ok
+  fail["HEALTH CHECK FAILED<br/>(loglar chiqariladi)"]:::blocked
+
+  dev --> gh --> ds --> ssh --> pull --> env --> build
+  key -.-> ds
+  build -- yo'q --> b1 --> db
+  build -- ha --> db
+  db --> mig --> fresh
+  fresh -- ha --> fs --> lex
+  fresh -- yo'q --> lex
+  lex --> up --> hc
+  hc -- ha --> ok
+  hc -- yo'q --> fail
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

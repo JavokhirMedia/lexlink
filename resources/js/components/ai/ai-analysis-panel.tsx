@@ -12,6 +12,7 @@ import { AlimonyTable } from "./alimony-table";
 import { CitationChips } from "./citation-chips";
 import { modelLabel, restorePii } from "./format";
 import { AiMarkdown } from "./markdown";
+import { formatDateTime } from "@/components/brand/money";
 
 type Props = { requestId: number; analysis: AiAnalysis | null };
 
@@ -52,9 +53,7 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                     </CardTitle>
                     {analysis && (
                         <p className="text-xs text-muted-foreground">
-                            {new Date(analysis.created_at).toLocaleString(
-                                "uz-UZ",
-                            )}
+                            {formatDateTime(analysis.created_at)}
                             {analysis.model &&
                                 ` · ${modelLabel(analysis.model)}`}
                         </p>

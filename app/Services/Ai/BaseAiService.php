@@ -357,7 +357,7 @@ abstract class BaseAiService implements AiService
     {
         $structured['disclaimer'] = (string) config('lexlink.ai.disclaimer');
         $structured['generator'] = str_starts_with($result['model'], 'fallback') ? 'fallback' : 'gemini';
-        $structured['_pii'] = $masker->displayMap();
+        $structured['_pii'] = encrypt($masker->displayMap()); // display map holds real names — encrypted at rest, wiped on purge
 
         return AiAnalysis::create([
             'data_request_id' => $request?->id,

@@ -1,0 +1,45 @@
+flowchart TD
+  start(["<code>DataRequestService::checkBasis(DataRequest)</code>"]):::primary
+  t0{{"So'rov turi tanlanganmi?"}}
+  t1{{"<code>subject_pinfl</code> bor va<br/><code>Pinfl::isValid</code> (14 raqam)?"}}
+  t2{{"Ishda huquqiy asos bormi?<br/><code>legalBases()</code>"}}
+  t3{{"Asos turi bu so'rov turi uchun qabul qilinadimi?<br/><code>LegalMatrix::acceptedBases(type)</code><br/>order → sud qarori yoki advokat orderi<br/>court → faqat sud qarori"}}
+  t4{{"Reyestr tasdiqlaganmi?<br/><code>verification_status = verified</code>"}}
+  t5{{"Asosdagi shaxs = so'rovdagi shaxs?<br/><code>hash_equals(subject_pinfl_hash)</code>"}}
+  t6{{"Muddati o'tmaganmi?<br/><code>! isExpired()</code>"}}
+  t7{{"Asos bu turni qamraydimi?<br/><code>allowed_types</code> ∋ type"}}
+  ok(["<b>ok = true</b><br/>asos tanlanadi → imzolash mumkin"]):::ok
+
+  b0["So'rov turi tanlanmagan"]:::blocked
+  b1["So'rovdagi shaxsning JShShIR raqami<br/>ko'rsatilmagan yoki noto'g'ri (14 raqam)"]:::blocked
+  b2["Ishda huquqiy asos yo'q — avval sud ajrimi<br/>yoki advokat orderini qo'shing"]:::blocked
+  b3["court turlari: «… faqat sud qarori yoki ajrimi asosida<br/>so'raladi (advokat orderi yetarli emas)»<br/>boshqalar: «Ishdagi asos turi ushbu so'rov uchun qabul qilinmaydi»"]:::blocked
+  b4["expired → «Asos muddati o'tgan»<br/>not_found → «… reyestrda topilmadi»<br/>mismatch → «… reyestrga mos kelmadi»<br/>pending → «… hali tekshirilmagan»"]:::blocked
+  b5["Asosdagi shaxs JShShIR<br/>so'rovdagi shaxsga mos emas"]:::blocked
+  b6["Asos muddati o'tgan<br/>(… gacha amal qilgan)"]:::blocked
+  b7["«Sud ajrimi / Advokat orderi № …<br/>… ma'lumotini qamramaydi»"]:::blocked
+
+  audit["Har bir rad etish <code>signAndSubmit</code> ichida: <b>AuditAction::RequestBlocked</b><br/>(reason, type, masked subject) + 422"]:::blocked
+
+  start --> t0
+  t0 -- ha --> t1
+  t0 -- yo'q --> b0
+  t1 -- ha --> t2
+  t1 -- yo'q --> b1
+  t2 -- ha --> t3
+  t2 -- yo'q --> b2
+  t3 -- ha --> t4
+  t3 -- yo'q --> b3
+  t4 -- ha --> t5
+  t4 -- yo'q --> b4
+  t5 -- ha --> t6
+  t5 -- yo'q --> b5
+  t6 -- ha --> t7
+  t6 -- yo'q --> b6
+  t7 -- ha --> ok
+  t7 -- yo'q --> b7
+  ok ~~~ audit
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132

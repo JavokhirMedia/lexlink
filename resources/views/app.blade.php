@@ -1,32 +1,29 @@
 <!DOCTYPE html>
-<html lang="uz" @class(['dark' => ($appearance ?? 'light') == 'dark'])>
+<html lang="uz">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+        {{-- Light only. Apply "Maxsus imkoniyatlar" (accessibility) classes before first paint. --}}
         <script>
-            (function() {
-                const appearance = '{{ $appearance ?? "light" }}';
-
-                if (appearance === 'system') {
-                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-                    if (prefersDark) {
-                        document.documentElement.classList.add('dark');
-                    }
-                }
+            (function () {
+                try {
+                    var raw = window.localStorage.getItem('lexlink.a11y');
+                    if (!raw) return;
+                    var s = JSON.parse(raw) || {};
+                    var c = document.documentElement.classList;
+                    if (s.textSize === 112) c.add('a11y-text-112');
+                    if (s.textSize === 125) c.add('a11y-text-125');
+                    if (s.contrast) c.add('a11y-contrast');
+                    if (s.grayscale) c.add('a11y-grayscale');
+                } catch (e) {}
             })();
         </script>
 
-        {{-- Inline style to set the HTML background color based on our theme in app.css --}}
         <style>
             html {
-                background-color: oklch(1 0 0);
-            }
-
-            html.dark {
-                background-color: oklch(0.18 0.025 262);
+                background-color: #f5f7fa;
             }
         </style>
 
@@ -35,8 +32,8 @@
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap&subset=latin,latin-ext" rel="stylesheet">
-        <meta name="theme-color" content="#1b2f5c">
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap&subset=latin,latin-ext" rel="stylesheet">
+        <meta name="theme-color" content="#0a5bd8">
 
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])

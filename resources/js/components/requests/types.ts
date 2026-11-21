@@ -1,3 +1,9 @@
+import {
+    formatDate,
+    formatDateTime,
+    formatMoney,
+    formatNumber,
+} from "@/components/brand/money";
 import type { DataRequest, DataRequestType } from "@/types/lexlink";
 
 export type RequestTypeOption = {
@@ -132,13 +138,12 @@ export type ResponseSummary =
     | BankAccountsSummary
     | BorderCrossingSummary;
 
-const amountFmt = new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 });
 
 /** 18436500, "UZS" -> "18 436 500 so'm"; 2350, "USD" -> "2 350 USD" */
 export function formatCurrency(amount: number, currency: string): string {
     return currency === "UZS"
-        ? `${amountFmt.format(amount)} so'm`
-        : `${amountFmt.format(amount)} ${currency}`;
+        ? formatMoney(amount)
+        : `${formatNumber(amount)} ${currency}`;
 }
 
 export type ResponseMeta = {
@@ -170,36 +175,8 @@ export type RequestDetail = DataRequest & {
     updated_at: string | null;
 };
 
-const dateFmt = new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-});
-const dateTimeFmt = new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-});
-
-export function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return "—";
-    }
-    const d = new Date(value);
-
-    return Number.isNaN(d.getTime()) ? value : dateFmt.format(d);
-}
-
-export function formatDateTime(value: string | null | undefined): string {
-    if (!value) {
-        return "—";
-    }
-    const d = new Date(value);
-
-    return Number.isNaN(d.getTime()) ? value : dateTimeFmt.format(d);
-}
+// Dates use the app-wide formatters (dd.mm.yyyy).
+export { formatDate, formatDateTime };
 
 const MONTHS = [
     "yanvar",

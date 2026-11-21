@@ -18,6 +18,7 @@ import { useClipboard } from '@/hooks/use-clipboard';
 import { index as teamIndex } from '@/routes/team';
 import { store as storeInvite } from '@/routes/team/invites';
 import { destroy as destroyLink } from '@/routes/team/links';
+import { formatDate as formatAppDate } from '@/components/brand/money';
 
 type TeamLink = {
     id: number;
@@ -40,12 +41,8 @@ type Props = {
     links: TeamLink[];
 };
 
-const dateFmt = new Intl.DateTimeFormat('uz-UZ', {
-    dateStyle: 'medium',
-});
-
 function formatDate(value: string | null): string {
-    return value ? dateFmt.format(new Date(value)) : '—';
+    return formatAppDate(value);
 }
 
 function statusVariant(status: TeamLink['status']) {
@@ -95,7 +92,7 @@ export default function TeamIndex({ mode, links }: Props) {
         return (
             <>
                 <Head title="Jamoa" />
-                <div className="space-y-6 p-4 md:p-6">
+                <div className="flex flex-col gap-8">
                     <PageHeader
                         title="Jamoa"
                         description="Siz yordamchi yurist sifatida ishlayotgan advokatlar. Bir nechta advokat bilan ishlash mumkin."
@@ -138,7 +135,7 @@ export default function TeamIndex({ mode, links }: Props) {
     return (
         <>
             <Head title="Jamoa" />
-            <div className="space-y-6 p-4 md:p-6">
+            <div className="flex flex-col gap-8">
                 <PageHeader
                     title="Jamoa"
                     description="Yordamchi yuristlarni taklif qiling. Yurist so‘rov loyihalarini tayyorlaydi; imzolash va yuborish faqat sizda qoladi."

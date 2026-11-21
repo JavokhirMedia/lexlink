@@ -21,9 +21,8 @@ import {
     Timer,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { DemoBadge } from "@/components/brand/demo-badge";
 import { LegalBasisChip } from "@/components/brand/legal-basis-chip";
-import { Logo, LogoMark } from "@/components/brand/logo";
+import { LogoMark } from "@/components/brand/logo";
 import { MaskedPinfl } from "@/components/brand/masked-pinfl";
 import { Money } from "@/components/brand/money";
 import { StatusBadge } from "@/components/brand/status-badge";
@@ -156,7 +155,7 @@ function Container({
     children: React.ReactNode;
 }) {
     return (
-        <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)}>
+        <div className={cn("mx-auto w-full max-w-content px-4 lg:px-8", className)}>
             {children}
         </div>
     );
@@ -185,7 +184,7 @@ function SectionTitle({
             </div>
             <h2
                 className={cn(
-                    "mt-2 font-display text-[30px] leading-tight font-semibold sm:text-[34px]",
+                    "mt-2 text-[30px] leading-tight font-semibold sm:text-[34px]",
                     inverted ? "text-white" : "text-foreground",
                 )}
             >
@@ -367,7 +366,7 @@ function RequestPreview() {
                         className="mt-1"
                     />
                 </div>
-                <span className="shrink-0 font-mono text-[11px] text-danger">
+                <span className="shrink-0 font-mono text-xs text-danger">
                     422
                 </span>
             </div>
@@ -384,55 +383,9 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
     return (
         <>
             <Head title="Advokat so'rovlari platformasi" />
-            <div className="min-h-screen bg-background text-foreground">
-                {/* Top bar */}
-                <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85">
-                    <Container className="flex h-16 items-center gap-6">
-                        <Link href="/" aria-label="LexLink bosh sahifa">
-                            <Logo subtitle={false} />
-                        </Link>
-                        <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-                            <a href="#muammo" className="hover:text-foreground">
-                                Muammo
-                            </a>
-                            <a
-                                href="#jarayon"
-                                className="hover:text-foreground"
-                            >
-                                Qanday ishlaydi
-                            </a>
-                            <a
-                                href="#huquqiy-xarita"
-                                className="hover:text-foreground"
-                            >
-                                Huquqiy xarita
-                            </a>
-                            <a
-                                href="#kafolatlar"
-                                className="hover:text-foreground"
-                            >
-                                Kafolatlar
-                            </a>
-                            <a
-                                href="#tariflar"
-                                className="hover:text-foreground"
-                            >
-                                Tariflar
-                            </a>
-                        </nav>
-                        <div className="ml-auto flex items-center gap-3">
-                            <DemoBadge className="hidden lg:inline-flex" />
-                            <Link
-                                href={ctaHref}
-                                className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                            >
-                                {ctaLabel}
-                            </Link>
-                        </div>
-                    </Container>
-                </header>
+            <div className="bg-background text-foreground">
 
-                <main>
+                <div>
                     {/* Hero */}
                     <section className="border-b">
                         <Container className="grid gap-14 py-16 sm:py-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-16 lg:py-24">
@@ -441,7 +394,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                                     <span className="size-1.5 rounded-full bg-gold" />
                                     Advokatlar va yuristlar uchun
                                 </div>
-                                <h1 className="mt-5 font-display text-[40px] leading-[1.08] font-semibold tracking-tight text-foreground sm:text-[52px]">
+                                <h1 className="mt-5 text-[40px] leading-[1.08] font-semibold tracking-tight text-foreground sm:text-[52px]">
                                     Davlat ma'lumotlariga huquqiy asos bilan —{" "}
                                     <span className="text-primary">
                                         bitta oynada
@@ -559,7 +512,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                     {/* Guarantees */}
                     <section
                         id="kafolatlar"
-                        className="relative scroll-mt-16 overflow-hidden bg-sidebar text-white"
+                        className="relative scroll-mt-16 overflow-hidden bg-ink text-white"
                     >
                         <LogoMark
                             aria-hidden="true"
@@ -577,7 +530,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                                 {GUARANTEES.map((g) => (
                                     <div
                                         key={g.title}
-                                        className="bg-sidebar p-6"
+                                        className="bg-ink p-6"
                                     >
                                         <g.icon className="size-5 text-sidebar-primary" />
                                         <h3 className="mt-4 text-base font-semibold text-white">
@@ -588,7 +541,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                                         </p>
                                     </div>
                                 ))}
-                                <div className="flex flex-col justify-between bg-sidebar p-6">
+                                <div className="flex flex-col justify-between bg-ink p-6">
                                     <div className="text-sm text-white/65">
                                         Asos tekshiruvi natijasi
                                     </div>
@@ -629,7 +582,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                                                 {plan.name}
                                             </h3>
                                             {plan.featured && (
-                                                <span className="rounded-sm bg-navy-soft px-1.5 py-0.5 text-[11px] font-medium text-navy">
+                                                <span className="rounded-sm bg-navy-soft px-1.5 py-0.5 text-xs font-medium text-navy">
                                                     Ko'p tanlanadi
                                                 </span>
                                             )}
@@ -680,7 +633,7 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                     <section>
                         <Container className="flex flex-col items-start justify-between gap-6 py-14 sm:flex-row sm:items-center">
                             <div>
-                                <h2 className="font-display text-2xl font-semibold">
+                                <h2 className="text-2xl font-semibold">
                                     Birinchi so'rovni bugun yuboring
                                 </h2>
                                 <p className="mt-2 text-sm text-muted-foreground">
@@ -697,27 +650,20 @@ export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
                             </Link>
                         </Container>
                     </section>
-                </main>
+                </div>
 
-                <footer className="border-t bg-muted/50">
-                    <Container className="flex flex-col gap-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                            <LogoMark
-                                className="size-6 text-primary"
-                                accent="var(--gold)"
-                            />
-                            <span>LexLink · Lex Hackathon 2026 · demo</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <DemoBadge />
-                            <span>
-                                Platformadagi barcha shaxslar va raqamlar
-                                uydirma.
-                            </span>
-                        </div>
-                    </Container>
-                </footer>
             </div>
         </>
     );
 }
+
+Welcome.layout = {
+    container: false,
+    navLinks: [
+        { label: "Muammo", href: "#muammo" },
+        { label: "Qanday ishlaydi", href: "#jarayon" },
+        { label: "Huquqiy xarita", href: "#huquqiy-xarita" },
+        { label: "Kafolatlar", href: "#kafolatlar" },
+        { label: "Tariflar", href: "#tariflar" },
+    ],
+};

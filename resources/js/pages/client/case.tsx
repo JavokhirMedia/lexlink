@@ -19,6 +19,7 @@ import type {
     ClientRequestStep,
     ClientRequestView,
 } from "@/types/lexlink";
+import { formatDateTime } from "@/components/brand/money";
 
 type Props = {
     case: ClientCaseInfo;
@@ -26,14 +27,7 @@ type Props = {
     note: string;
 };
 
-const dtFmt = new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-});
-const fmt = (v: string | null) => (v ? dtFmt.format(new Date(v)) : null);
+const fmt = (v: string | null) => (v ? formatDateTime(v) : null);
 
 function Steps({ steps }: { steps: ClientRequestStep[] }) {
     return (

@@ -19,7 +19,12 @@ class AiAnalysisPresenter
         }
 
         $structured = (array) ($a->structured ?? []);
-        $map = (array) ($structured['_pii'] ?? []);
+        $raw = $structured['_pii'] ?? [];
+        try {
+            $map = is_string($raw) ? (array) decrypt($raw) : (array) $raw;
+        } catch (\Throwable) {
+            $map = [];
+        }
         unset($structured['_pii']);
 
         return [

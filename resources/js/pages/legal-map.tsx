@@ -1,6 +1,5 @@
-import { Head, Link, usePage } from "@inertiajs/react";
+import { Head, Link } from "@inertiajs/react";
 import {
-    ArrowRight,
     Banknote,
     Building2,
     Clock3,
@@ -15,14 +14,10 @@ import {
     TriangleAlert,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
-import { DemoBadge } from "@/components/brand/demo-badge";
-import { Logo } from "@/components/brand/logo";
 import { PageHeader } from "@/components/brand/page-header";
 import { AccessBadge } from "@/components/legal/access-badge";
-import AppLayout from "@/layouts/app-layout";
 import { cn } from "@/lib/utils";
-import { home, legalMap } from "@/routes";
+import { legalMap } from "@/routes";
 import type {
     LegalDomain,
     LegalMatrix,
@@ -66,7 +61,7 @@ function refLabel(ref: LegalRef): string {
 
 function RefChip({ refItem }: { refItem: LegalRef }) {
     const classes =
-        "inline-flex max-w-full items-center gap-1 rounded-sm border bg-background px-1.5 py-0.5 text-[11px] leading-snug text-foreground/80";
+        "inline-flex max-w-full items-center gap-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs leading-snug text-foreground/80";
 
     if (!refItem.url) {
         return (
@@ -133,7 +128,7 @@ function Overview({
         <section aria-labelledby="overview-title">
             <h2
                 id="overview-title"
-                className="font-display text-xl font-semibold"
+                className="text-xl font-semibold"
             >
                 Umumiy jadval
             </h2>
@@ -245,7 +240,7 @@ function DomainSection({
                     <Icon aria-hidden="true" className="size-[18px]" />
                 </span>
                 <div className="min-w-0">
-                    <h3 className="font-display text-lg leading-tight font-semibold">
+                    <h3 className="text-lg leading-tight font-semibold">
                         {domain.title}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -353,7 +348,7 @@ function Deadlines({ d }: { d: LegalMatrix["deadlines"] }) {
                         key={r.value}
                         className="grid grid-cols-[96px_1fr] gap-4 px-5 py-3 text-sm"
                     >
-                        <dt className="font-display text-lg leading-tight font-semibold tabular-nums">
+                        <dt className="text-lg leading-tight font-semibold tabular-nums">
                             {r.value}
                         </dt>
                         <dd className="text-foreground/85">{r.text}</dd>
@@ -457,7 +452,7 @@ function LegalMapContent({ matrix, secrecy, can_create_request }: Props) {
             />
 
             <div className="space-y-4">
-                <h2 className="font-display text-xl font-semibold">
+                <h2 className="text-xl font-semibold">
                     Sohalar bo'yicha
                 </h2>
                 {matrix.domains.map((d) => (
@@ -485,52 +480,16 @@ function LegalMapContent({ matrix, secrecy, can_create_request }: Props) {
     );
 }
 
-function PublicShell({ children }: { children: ReactNode }) {
-    return (
-        <div className="min-h-screen bg-background text-foreground">
-            <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85 print:static print:border-b-2">
-                <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-5 sm:px-8">
-                    <Link href={home()} aria-label="LexLink bosh sahifa">
-                        <Logo subtitle={false} />
-                    </Link>
-                    <div className="ml-auto flex items-center gap-3 print:hidden">
-                        <DemoBadge className="hidden sm:inline-flex" />
-                        <Link
-                            href="/login"
-                            className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                        >
-                            OneID orqali kirish
-                            <ArrowRight aria-hidden="true" className="size-4" />
-                        </Link>
-                    </div>
-                </div>
-            </header>
-            <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
-                {children}
-            </main>
-        </div>
-    );
-}
-
 export default function LegalMapPage(props: Props) {
-    const { auth } = usePage().props;
-    const title = "Huquqiy xarita";
-
-    if (auth?.user) {
-        return (
-            <AppLayout breadcrumbs={[{ title, href: legalMap() }]}>
-                <Head title={title} />
-                <div className="mx-auto w-full max-w-6xl p-4 md:p-6 print:p-0">
-                    <LegalMapContent {...props} />
-                </div>
-            </AppLayout>
-        );
-    }
-
     return (
-        <PublicShell>
-            <Head title={title} />
+        <>
+            <Head title="Huquqiy xarita" />
             <LegalMapContent {...props} />
-        </PublicShell>
+        </>
     );
 }
+
+// Shell comes from app.tsx: app shell when logged in, public shell for guests.
+LegalMapPage.layout = {
+    breadcrumbs: [{ title: "Huquqiy xarita", href: legalMap() }],
+};

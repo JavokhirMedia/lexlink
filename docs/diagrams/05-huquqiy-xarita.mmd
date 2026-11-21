@@ -1,0 +1,38 @@
+flowchart LR
+  root(["<b>Huquqiy xarita</b><br/><code>App\Support\LegalMatrix</code>"]):::primary
+
+  d1["<b>Sud ishlari</b><br/><code>court</code>"]:::domain
+  d2["<b>Soliq va daromad</b><br/><code>tax</code>"]:::domain
+  d3["<b>Mulkiy huquqlar</b><br/><code>property</code>"]:::domain
+  d4["<b>Bank siri</b><br/><code>bank</code>"]:::domain
+  d5["<b>Chetga chiqish</b><br/><code>border</code>"]:::domain
+
+  t1["<b>Sud ishi holati</b> <code>court_case</code><br/>Advokatura Q. 6, 7¹-m."]
+  t2["<b>Soliq ma'lumotlari (ochiq qism)</b> <code>tax_info</code><br/>Soliq kodeksi 29-m. 1–8-b.; Advokatura Q. 7¹"]
+  t3["<b>Ish haqi / daromad</b> <code>salary</code><br/>Soliq kodeksi 29-m. (soliq siri); ShMQ 28-m."]
+  t4["<b>Ko'chmas mulk</b> <code>property</code><br/>Advokatura Q. 7¹; ShMQ 18-m."]
+  t5["<b>Avtotransport</b> <code>vehicle</code><br/>Advokatura Q. 7¹; ShMQ 18-m."]
+  t6["<b>Yuridik shaxslardagi ulushlar</b> <code>business_shares</code><br/>Soliq kodeksi 29-m. 6-b.; Advokatura Q. 7¹"]
+  t7["<b>Bank hisobvaraqlari</b> <code>bank_accounts</code><br/>Bank siri to'g'risidagi Q. 10-m.; ShMQ 28-m."]
+  t8["<b>Chetga chiqish</b> <code>border_crossing</code><br/>ShMQ 25, 28-m."]
+
+  order["<b>access = order</b><br/>Advokat so'rovi + advokat orderi<br/>(sud qarori ham qabul qilinadi)<br/>javob muddati: 15 kun / 3 ish kuni"]:::ok
+  court["<b>access = court</b><br/>Faqat sud qarori / ajrimi<br/>advokat orderi yetarli emas"]:::blocked
+
+  root --> d1 & d2 & d3 & d4 & d5
+  d1 --> t1
+  d2 --> t2 & t3
+  d3 --> t4 & t5 & t6
+  d4 --> t7
+  d5 --> t8
+  t1 & t2 & t4 & t5 & t6 --> order
+  t3 & t7 & t8 --> court
+
+  oos["<b>Platformadan tashqari</b><br/>tibbiy ma'lumotlar · sudlanganlik<br/>aloqa va yozishmalar"]:::ext
+  root -.-> oos
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef domain fill:#EEF4FF,stroke:#0A5BD8,color:#0B2A5B
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

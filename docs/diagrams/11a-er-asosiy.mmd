@@ -1,0 +1,123 @@
+erDiagram
+  users ||--o| advocate_profiles : "user_id"
+  users ||--o{ advocate_lawyer_links : "advocate_id / lawyer_id"
+  users ||--o{ cases : "owner_id"
+  cases ||--o{ case_members : "case_id"
+  users ||--o{ case_members : "user_id"
+  cases ||--o{ legal_bases : "case_id"
+  cases ||--o{ data_requests : "case_id"
+  legal_bases |o--o{ data_requests : "legal_basis_id"
+  data_requests ||--o| request_responses : "data_request_id"
+  data_requests |o--o{ ai_analyses : "data_request_id"
+  cases ||--o{ ai_analyses : "case_id"
+  cases ||--o{ case_client_links : "case_id"
+  users |o--o{ case_client_links : "client_user_id"
+  users ||--o| wallets : "user_id"
+  wallets ||--o{ transactions : "wallet_id"
+  data_requests |o--o{ transactions : "data_request_id"
+  users ||--o{ subscriptions : "user_id"
+  plans ||--o{ subscriptions : "plan_id"
+  users |o--o{ audit_logs : "user_id"
+  cases |o--o{ audit_logs : "case_id"
+  law_documents ||--o{ law_chunks : "law_document_id"
+
+  users {
+    bigint id PK
+    string oneid_sub
+    text pinfl "shifrlangan"
+    string pinfl_hash "sha256"
+    string role "advocate|lawyer|admin|client"
+  }
+  advocate_profiles {
+    string license_number
+    string license_status "active|revoked|suspended"
+    timestamp last_checked_at
+  }
+  cases {
+    bigint id PK
+    string court_case_number
+    string category
+    string status
+  }
+  case_members {
+    string role "advocate|lawyer"
+    bool can_view_responses
+    timestamp secrecy_declared_at
+  }
+  legal_bases {
+    string type "court_decision|advocate_order"
+    string number
+    string subject_pinfl_hash
+    json allowed_types
+    string verification_status
+    date expires_at
+    string purpose
+  }
+  data_requests {
+    string type "8 tur"
+    string subject_pinfl_hash
+    string status "DataRequestStatus"
+    string signature "demo ERI xeshi"
+    string gov_request_id
+    int cost
+    timestamp due_at
+    string deadline_basis
+  }
+  request_responses {
+    longtext payload "shifrlangan, purge"
+    json summary "PII'siz, qoladi"
+    string pdf_path
+    timestamp expires_at
+    timestamp purged_at
+  }
+  ai_analyses {
+    string kind
+    longtext output "niqoblangan"
+    longtext sent_payload
+    json anonymization_report
+    json structured
+  }
+  case_client_links {
+    string order_number
+    string client_pinfl_hash
+    string token
+    timestamp revoked_at
+  }
+  plans {
+    string code "start|advocate|firm"
+    int included_requests
+    int extra_price
+  }
+  subscriptions {
+    date period_start
+    date period_end
+    int used_requests
+    int used_ai
+  }
+  wallets {
+    bigint balance
+  }
+  transactions {
+    string type "topup|charge|refund|subscription|ai"
+    bigint amount
+    bigint balance_after
+    string external_id
+  }
+  audit_logs {
+    string action "AuditAction, append-only"
+    string subject_type
+    json meta
+  }
+  law_documents {
+    string slug
+    string lex_url
+  }
+  law_chunks {
+    string article_number
+    longtext content
+    longtext embedding "JSON vektor"
+  }
+  advocate_lawyer_links {
+    string token
+    string status "pending|accepted|revoked"
+  }

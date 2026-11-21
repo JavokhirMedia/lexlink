@@ -1,0 +1,68 @@
+sequenceDiagram
+  autonumber
+  participant Y as Yurist
+  participant A as Advokat
+  participant S as DataRequestService
+  participant B as BillingService
+  participant Q as Horizon (Redis navbat)
+  participant G as MockGovProvider → idora
+  participant R as Reverb
+  participant AI as AiService
+  participant L as AuditLogger
+
+  Y->>S: create() — loyiha (status draft)
+  S->>S: checkBasis() — jonli tekshiruv
+  S->>L: RequestCreated
+  Y->>S: requestSignature() → awaiting_signature
+  S->>L: RequestCreated (sent_for_signature)
+  Note over A,S: Advokat ishning asosini qo'shgan:<br/>sud ajrimi yoki advokat orderi (LegalBasisVerifier::verify)
+  A->>S: signAndSubmit()
+  S->>S: LicenseChecker::refresh() — litsenziya faolmi?
+  alt litsenziya faol emas
+    S->>L: RequestBlocked (license_inactive)
+    S-->>A: 403 imzolash huquqi to'xtatilgan
+  end
+  S->>S: checkBasis() (shaxs + tur + muddat)
+  alt asos qamramaydi
+    S->>L: RequestBlocked (sabab)
+    S-->>A: 422 sabab matni
+  end
+  S->>S: RequestDeadline::compute() — due_at, deadline_basis
+  rect rgb(238,244,255)
+    Note over S,B: DB tranzaksiyasi
+    S->>B: chargeForRequest()
+    B->>L: Charge
+    B-->>S: InsufficientBalance bo'lsa 422
+    S->>S: ERI imzo (demo: sha256 imzo xeshi)
+    S->>L: RequestSigned
+    S->>S: transition → submitted
+    S->>L: RequestSubmitted
+  end
+  S->>R: RequestStatusUpdated
+  S->>Q: SubmitGovRequestJob
+  Q->>G: POST /requests (GovSubmission)
+  alt transport xatosi 3 marta
+    Q->>S: transition → failed + refund()
+    S->>L: ResponseReceived (technical_failure), Refund
+  else qabul qilindi
+    G-->>Q: request_id
+    Q->>S: transition → processing
+    S->>R: RequestStatusUpdated
+  end
+  loop FetchGovResultJob — har 2 s, 30 martagacha
+    Q->>G: GET /requests/{id}
+  end
+  alt completed
+    Q->>G: result()
+    Q->>S: RequestResponse (payload shifrlangan, expires_at = +30 kun)<br/>transition → completed
+    S->>L: ResponseReceived
+    S->>R: RequestStatusUpdated
+    Q->>AI: AnalyzeResponseJob → analyzeResponse()
+    AI->>L: AiAnalysis
+  else rejected
+    Q->>S: transition → rejected + refund()
+    S->>L: ResponseReceived (rejected), Refund
+  else 30 urinishda javob yo'q
+    Q->>S: transition → failed + refund()
+  end
+  R-->>A: private-case.{id}, private-user.{id}

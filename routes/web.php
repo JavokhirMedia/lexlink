@@ -21,7 +21,7 @@ Route::get('/', fn () => Inertia::render('welcome', [
     'matrix' => LegalMatrix::toArray(),
 ]))->name('home');
 
-foreach (['auth', 'cases', 'requests', 'billing', 'ai', 'app', 'legal-map', 'client'] as $file) {
+foreach (['auth', 'cases', 'requests', 'billing', 'ai', 'app', 'legal-map', 'client', 'help'] as $file) {
     if (file_exists($path = __DIR__."/{$file}.php")) {
         require $path;
     }

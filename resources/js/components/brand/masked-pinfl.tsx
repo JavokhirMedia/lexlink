@@ -43,9 +43,9 @@ export function MaskedPinfl({
             title="JShShIR maskalangan"
         >
             {label && (
-                <span className="text-xs text-muted-foreground">JShShIR</span>
+                <span className="text-meta text-ink-secondary">JShShIR</span>
             )}
-            <span className="font-mono text-[0.92em] tracking-wider text-foreground tabular-nums">
+            <span className="font-mono text-[0.92em] tracking-wide text-ink tabular-nums">
                 {masked ?? '—'}
             </span>
         </span>

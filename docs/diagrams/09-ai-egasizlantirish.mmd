@@ -1,0 +1,36 @@
+flowchart TD
+  src(["<code>AnalyzeResponseJob</code> / da'vo loyihasi / huquqiy yordamchi"]):::primary
+  ctx["<code>AnonymizationContext</code><br/>ish, taraflar, a'zolar, so'rov va payload'dagi<br/>barcha ma'lum PII ro'yxatga olinadi"]
+  proj["<code>ResponseProjector::project</code> — allowlist<br/>F.I.Sh. → <code>[SHAXS_n]</code> · tashkilotlar → <code>[ISH_BERUVCHI_n]</code>/<code>[BANK_n]</code><br/>ish/qaror → <code>[ISH_n]</code>/<code>[QAROR_n]</code> · JShShIR, manzil, raqam, VIN,<br/>kadastr, hisob, STIR, tug'ilgan sana → <code>[KIND_n]</code><br/><b>summalar va voqea sanalari qoladi</b>"]
+  php["Raqamlar PHP'da hisoblanadi<br/><code>AlimonyCalculator</code> (OK 99-m.: 1/4 · 1/3 · 1/2)<br/><code>ResponseSummarizer</code> (o'rtacha, jami)"]:::ok
+  rag["<code>LawKnowledgeBase</code><br/>moddalar + RAG qidiruv <code>law_chunks</code><br/>(query embedding ham gateway orqali;<br/>bo'lmasa LIKE qidiruv)"]
+  prompt["<code>PromptRepository::render</code><br/>versiyalangan prompt"]
+  gate["<code>AnonymizationGateway::generation</code><br/>1-qadam: yakuniy <code>PiiMasker</code> o'tishi (lex.uz matnidan tashqari)"]:::primary
+  guard{{"2-qadam: <code>LeakGuard::scan</code><br/>ma'lum PII to'plami + regex detektorlar<br/>(JShShIR, pasport, telefon, hisob, …)"}}
+  blocked["Topildi → <b>HTTP chaqiruv yo'q</b><br/><code>PiiLeakBlocked</code>, audit: <b>AiPiiBlocked</b><br/>(faqat kategoriya va soni)"]:::blocked
+  fb["Deterministik shablon (fallback)<br/>model = fallback (pii blocked)"]:::warn
+  seal["Toza → <code>AnonymizedPayload</code><br/>xususiy konstruktor + HMAC muhr"]:::ok
+  gc{{"<code>GeminiClient::generate</code><br/><code>AnonymizationGateway::verify</code> muhr"}}
+  forged["Soxta / xom satr →<br/>RuntimeException / TypeError"]:::blocked
+  gem["Google Gemini<br/>(O'zbekistondan tashqarida)"]:::ext
+  gerr["Gemini xatosi → fallback"]:::warn
+  store["<code>ai_analyses</code>: output (niqoblangan),<br/><code>sent_payload</code> (aynan yuborilgan matn),<br/><code>anonymization_report</code>, structured._pii<br/>audit: <b>AiAnalysis</b>"]
+  show["<code>AiAnalysisPresenter</code><br/>ruxsatli foydalanuvchiga placeholderlar mahalliy tiklanadi<br/>(JShShIR to'liq ochilmaydi) · «AI'ga nima yuborildi?»<br/>+ <code>ai_disclaimer</code>; mijozga niqoblangan holda"]:::ok
+
+  src --> ctx --> proj --> prompt
+  php --> prompt
+  rag --> prompt
+  prompt --> gate --> guard
+  guard -- "hit" --> blocked --> fb --> store
+  guard -- "toza" --> seal --> gc
+  gc -- "muhr noto'g'ri" --> forged
+  gc -- "OK" --> gem
+  gem -- javob --> store
+  gem -. "xato" .-> gerr --> store
+  store --> show
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef warn fill:#FFF6E5,stroke:#DC8A00,color:#7A4A00
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

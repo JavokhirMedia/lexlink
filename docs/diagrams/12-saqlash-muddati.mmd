@@ -1,0 +1,21 @@
+flowchart TD
+  a(["Idora javobi keldi<br/><code>FetchGovResultJob::complete</code>"]):::primary
+  b["<code>request_responses</code><br/>payload — shifrlangan JSON<br/>summary — PII'siz qisqa xulosa<br/><code>expires_at = now + response_retention_days (30)</code>"]
+  c["30 kun davomida: ruxsatli foydalanuvchi<br/>payload / PDF ko'radi (har biri audit qilinadi)"]:::ok
+  s["<code>scheduler</code> · <code>schedule:work</code><br/><code>lexlink:purge-responses</code> — <b>har soat</b>, withoutOverlapping"]:::primary
+  d{{"<code>purged_at IS NULL</code> va<br/><code>expires_at ≤ now</code>?"}}
+  e["PDF fayli o'chiriladi (<code>Storage local</code>)<br/><code>payload = null</code>, <code>pdf_path = null</code>, <code>purged_at = now</code>"]:::blocked
+  f["audit: <b>ResponsePurged</b>"]
+  g["<b>Qoladi:</b> summary, so'rov metadatasi,<br/>AI xulosa (niqoblangan), audit jurnali"]:::ok
+  h["Keyingi ochish: payload / PDF → <b>410</b><br/>«to'liq javob o'chirilgan» xabari"]:::warn
+
+  a --> b --> c
+  s --> d
+  d -- ha --> e --> f --> g
+  d -- "yo'q" --> c
+  g --> h
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef warn fill:#FFF6E5,stroke:#DC8A00,color:#7A4A00

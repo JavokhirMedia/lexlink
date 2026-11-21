@@ -87,23 +87,22 @@ export function LegalBasisChip({
             data-basis={state}
             className={cn(
                 'inline-flex w-fit max-w-full items-center gap-1.5 rounded-sm border font-medium',
-                size === 'sm'
-                    ? 'px-1.5 py-px text-[11px]'
-                    : 'px-2 py-1 text-xs',
+                size === 'sm' ? 'h-6 px-2 text-xs' : 'h-7 px-2.5 text-sm',
                 cfg.classes,
                 className,
             )}
         >
             <Icon
                 aria-hidden="true"
-                className={size === 'sm' ? 'size-3' : 'size-3.5'}
+                strokeWidth={1.75}
+                className={size === 'sm' ? 'size-3.5' : 'size-4'}
             />
             <span className="whitespace-nowrap">{label ?? cfg.label}</span>
             {detail && (
                 <>
                     <span
                         aria-hidden="true"
-                        className="h-3 w-px bg-current opacity-30"
+                        className="h-3.5 w-px bg-current opacity-30"
                     />
                     <span className="truncate font-normal opacity-90">
                         {detail}

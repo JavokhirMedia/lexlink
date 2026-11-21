@@ -182,7 +182,12 @@ class DataRequestService
         if (! $advocate->isAdvocate() || ! $this->isAdvocateMember($case, $advocate)) {
             throw new AuthorizationException("So'rovni faqat ishga biriktirilgan advokat imzolaydi va yuboradi");
         }
-        $this->refreshLicense($advocate);
+        $confirmed = $this->refreshLicense($advocate);
+        if ($confirmed === false && $advocate->hasActiveLicense()) {
+            // Fail closed: the registry could not confirm the licence right now (outage) — do not sign on a stale status.
+            $this->audit->log(AuditAction::RequestBlocked, $r, ['reason' => 'license_registry_unavailable'], $case->id, $advocate);
+            throw ValidationException::withMessages(['license' => "Litsenziya reyestri hozir javob bermayapti — imzolash vaqtincha to'xtatildi, birozdan keyin qayta urinib ko'ring"]);
+        }
         if (! $advocate->hasActiveLicense()) {
             $this->audit->log(AuditAction::RequestBlocked, $r, ['reason' => 'license_inactive'], $case->id, $advocate);
             throw new AuthorizationException("Advokatlik litsenziyangiz faol emas — imzolash huquqi to'xtatilgan");
@@ -334,17 +339,22 @@ class DataRequestService
         return $case->memberships()->where('user_id', $user->id)->where('role', 'advocate')->exists();
     }
 
-    private function refreshLicense(User $user): void
+    /** @return bool|null true = registry confirmed active, false = not confirmed (inactive or registry down), null = no checker */
+    private function refreshLicense(User $user): ?bool
     {
+        $confirmed = null;
         if (class_exists(self::LICENSE_CHECKER) || app()->bound(self::LICENSE_CHECKER)) {
             try {
-                app(self::LICENSE_CHECKER)->refresh($user);
+                $confirmed = (bool) app(self::LICENSE_CHECKER)->refresh($user);
             } catch (Throwable $e) {
-                Log::warning('Licence refresh failed, using stored status: '.$e->getMessage());
+                Log::warning('Licence refresh failed: '.$e->getMessage());
+                $confirmed = false;
             }
         }
         $user->unsetRelation('advocateProfile');
         $user->load('advocateProfile');
+
+        return $confirmed;
     }
 
     private function billing(): ?object

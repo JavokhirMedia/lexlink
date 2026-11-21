@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { index as auditIndex } from '@/routes/audit';
 import type { AuditEntry } from '@/types';
+import { formatDateTime } from '@/components/brand/money';
 
 type Paginated<T> = {
     data: T[];
@@ -49,10 +50,7 @@ const SCOPE_TEXT: Record<Props['scope'], string> = {
     own: 'Faqat sizning harakatlaringiz.',
 };
 
-const dateTimeFmt = new Intl.DateTimeFormat('uz-UZ', {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-});
+const dateTimeFmt = { format: (d: Date) => formatDateTime(d) };
 
 function formatMetaValue(value: unknown): string {
     if (value === null || value === undefined) {
@@ -120,7 +118,7 @@ export default function AuditIndex({ entries, filters, actions, cases, scope }: 
     return (
         <>
             <Head title="Audit jurnali" />
-            <div className="space-y-6 p-4 md:p-6">
+            <div className="flex flex-col gap-8">
                 <PageHeader
                     title="Audit jurnali"
                     description={`O‘zgartirib bo‘lmaydigan harakatlar jurnali. ${SCOPE_TEXT[scope]}`}

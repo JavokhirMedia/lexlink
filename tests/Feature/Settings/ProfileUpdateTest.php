@@ -59,8 +59,8 @@ class ProfileUpdateTest extends TestCase
             ->assertSessionHasErrors('email');
     }
 
-    public function test_appearance_page_is_available(): void
+    public function test_appearance_page_is_removed(): void
     {
-        $this->actingAs(User::factory()->create())->get(route('appearance.edit'))->assertOk();
+        $this->actingAs(User::factory()->create())->get('/settings/appearance')->assertNotFound();
     }
 }

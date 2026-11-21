@@ -1,9 +1,10 @@
 import { createInertiaApp } from "@inertiajs/react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { initializeTheme } from "@/hooks/use-appearance";
+import { initializeAccessibility } from "@/hooks/use-accessibility";
 import AppLayout from "@/layouts/app-layout";
 import AuthLayout from "@/layouts/auth-layout";
+import PublicLayout from "@/layouts/public-layout";
 import SettingsLayout from "@/layouts/settings/layout";
 import { configureEcho } from "@laravel/echo-react";
 
@@ -15,15 +16,27 @@ const appName = import.meta.env.VITE_APP_NAME || "LexLink";
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    layout: (name) => {
+    layout: (name, page) => {
+        const loggedIn = Boolean(
+            (page?.props as { auth?: { user?: unknown } } | undefined)?.auth
+                ?.user,
+        );
+
         switch (true) {
+            // Public shell (utility bar + header + footer, no sidebar).
             case name === "welcome":
-            case name === "legal-map": // public; wraps itself in AppLayout when logged in
+            case name === "help":
+                return PublicLayout;
+            case name === "legal-map":
+                return loggedIn ? AppLayout : PublicLayout;
+            case name.startsWith("auth/"):
+                return [PublicLayout, AuthLayout];
+            // client/* (ClientLayout), onboarding/* and invites/*
+            // (OnboardingShell) set their own `.layout`, which wraps PublicLayout.
+            case name.startsWith("client/"):
             case name.startsWith("onboarding/"):
             case name.startsWith("invites/"):
-                return null; // these pages render their own shell
-            case name.startsWith("auth/"):
-                return AuthLayout;
+                return PublicLayout;
             case name.startsWith("settings/"):
                 return [AppLayout, SettingsLayout];
             default:
@@ -40,9 +53,8 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: "#1e3a6e",
+        color: "#0a5bd8",
     },
 });
 
-// This will set light / dark mode on load...
-initializeTheme();
+initializeAccessibility();

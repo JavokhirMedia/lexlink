@@ -285,7 +285,7 @@ export function ResponseSummaryCard({ response }: { response: ResponseMeta }) {
                     </div>
                 )}
                 {response.gov_signature && (
-                    <p className="font-mono text-[11px] break-all text-muted-foreground">
+                    <p className="font-mono text-xs break-all text-muted-foreground">
                         Idora imzosi: {response.gov_signature}
                     </p>
                 )}

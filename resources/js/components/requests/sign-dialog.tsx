@@ -59,7 +59,7 @@ export function SignDialog({
                             Elektron raqamli imzo bilan imzolash
                         </DialogTitle>
                         <DialogDescription>
-                            <span className="mr-2 inline-flex items-center rounded-sm border border-gold-border bg-gold-soft px-1.5 py-0.5 font-mono text-[11px] text-gold">
+                            <span className="mr-2 inline-flex items-center rounded-sm border border-gold-border bg-gold-soft px-1.5 py-0.5 font-mono text-xs text-gold">
                                 Demo: ERI imitatsiyasi
                             </span>
                             Haqiqiy E-IMZO ulanmagan — kalit tanlash jarayoni

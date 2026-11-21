@@ -36,6 +36,17 @@ class FallbackAiServiceTest extends TestCase
         $this->assertStringContainsString('Oila kodeksi 99-modda', $analysis->output);
         $this->assertNotEmpty($analysis->citations);
 
+        // the placeholder->real-name map is encrypted at rest (raw DB value must not contain the name)
+        $raw = \Illuminate\Support\Facades\DB::table('ai_analyses')->where('id', $analysis->id)->value('structured');
+        $this->assertStringNotContainsString(self::ADVOCATE_NAME, (string) $raw);
+        $this->assertIsString(json_decode((string) $raw, true)['_pii'] ?? null);
+        $this->assertNotNull(\App\Services\Ai\AiAnalysisPresenter::present($analysis->fresh()));
+
+        // purge drops the map entirely
+        $analysis->dataRequest->response->update(['expires_at' => now()->subMinute()]);
+        $this->artisan('lexlink:purge-responses')->assertSuccessful();
+        $this->assertArrayNotHasKey('_pii', (array) $analysis->fresh()->structured);
+
         $text = app(AiService::class)->draftRequestText($request);
         $this->assertStringContainsString('ADVOKAT SOʻROVI', $text);
         $this->assertStringContainsString(self::ADVOCATE_NAME, $text);

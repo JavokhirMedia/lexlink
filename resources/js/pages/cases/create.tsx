@@ -71,7 +71,7 @@ export default function CasesCreate({
     return (
         <>
             <Head title="Yangi ish" />
-            <div className="mx-auto w-full max-w-3xl p-4 md:p-6">
+            <div className="w-full max-w-3xl">
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Yangi ish

@@ -1,0 +1,77 @@
+flowchart TD
+  subgraph s1["1 · E-order berish (demo)"]
+    direction TB
+    i1["Advokat: <code>POST /cases/{id}/advocate-orders</code><br/><code>LegalBasisController::issueOrder</code><br/>client_pinfl, client_name, matter"]:::primary
+    i2["<code>GovDataProvider::issueAdvocateOrder</code><br/>→ <code>POST /mock-gov/v1/advocate-orders</code>"]
+    i3["<code>ORD-2026-…</code> raqami qaytadi<br/>audit: <b>AdvocateOrderIssued</b>"]:::ok
+    i1 --> i2 --> i3
+  end
+
+  subgraph s2["2 · Asos sifatida qo'shish"]
+    direction TB
+    f1["<code>POST /cases/{id}/bases</code> (type = advocate_order)<br/>number, subject_pinfl, allowed_types,<br/>expires_at, purpose (≥10 belgi)"]:::primary
+    f2{{"allowed_types ⊆<br/><code>LegalMatrix::orderTypes()</code>?"}}
+    f2n["422: Advokat orderi bu turni ochmaydi<br/>(ish haqi, bank siri, chegara) — sud qarori kerak"]:::blocked
+    f3["saqlash: <code>verification_status = pending</code><br/>audit: <b>LegalBasisAdded</b>"]
+    f1 --> f2
+    f2 -- yo'q --> f2n
+    f2 -- ha --> f3
+  end
+
+  subgraph s3["3 · Reyestr tekshiruvi"]
+    direction TB
+    v0["<code>LegalBasisVerifier::verifyAdvocateOrder</code><br/>allowed_types := tanlangan ∩ orderTypes()"]
+    v1{{"Orderni bergan advokat litsenziyasi faolmi?<br/>profil + <code>GET /advocates/{license}</code>"}}
+    v2{{"<code>GET /advocate-orders/{number}</code>"}}
+    v3{{"order.status = active?"}}
+    v4{{"order.license_number =<br/>beruvchi advokat litsenziyasi?"}}
+    v5{{"allowed_types bo'sh emasmi?"}}
+    v6{{"expires_at o'tmaganmi?"}}
+    vok["<b>verified</b><br/>verification_payload: client_name,<br/>client_pinfl_hash (mijoz havolasi uchun)"]:::ok
+    m1["mismatch: litsenziya faol emas"]:::blocked
+    pe["pending: reyestr bilan aloqa yo'q"]:::warn
+    nf["not_found: reyestrda topilmadi"]:::blocked
+    m2["mismatch: order bekor qilingan"]:::blocked
+    m3["mismatch: boshqa advokatga berilgan"]:::blocked
+    m4["mismatch: hech bir tur qamralmagan"]:::blocked
+    ex["expired"]:::blocked
+    v0 --> v1
+    v1 -- yo'q --> m1
+    v1 -- ha --> v2
+    v2 -- "xato" --> pe
+    v2 -- "null" --> nf
+    v2 -- topildi --> v3
+    v3 -- "cancelled" --> m2
+    v3 -- ha --> v4
+    v4 -- yo'q --> m3
+    v4 -- ha --> v5
+    v5 -- yo'q --> m4
+    v5 -- ha --> v6
+    v6 -- yo'q --> ex
+    v6 -- ha --> vok
+  end
+
+  subgraph s4["4 · Javob muddati"]
+    direction TB
+    d1{{"<code>RequestDeadline::compute</code><br/>(imzolashda) · asos turi?"}}
+    d2{{"Ishning <code>court_case_number</code><br/>sud reyestrida bormi?<br/><code>GET /court/cases/{n}</code>"}}
+    dp["<b>3 ish kuni</b><br/>deadline_basis = proceedings"]:::ok
+    dd["<b>15 kun</b><br/>deadline_basis = default"]:::ok
+    dc["<b>15 kun</b><br/>deadline_basis = court_decision"]:::ok
+    d1 -- advocate_order --> d2
+    d1 -- court_decision --> dc
+    d2 -- "ha" --> dp
+    d2 -- "yo'q / reyestr xatosi" --> dd
+  end
+
+  i3 -. "raqam formaga" .-> f1
+  f3 --> v0
+  vok -. "<code>signAndSubmit</code>" .-> d1
+  law["Advokatura to'g'risidagi Qonun 7¹-modda<br/><code>LegalMatrix::DEADLINES</code>: 15 / 3 ish kuni / 5 kun xabar"]:::ext
+  law -.- d1
+
+  classDef primary fill:#0A5BD8,stroke:#0847AB,color:#ffffff
+  classDef blocked fill:#FDECEC,stroke:#D92D20,color:#912018
+  classDef ok fill:#E7F6EC,stroke:#1E9E58,color:#0F5132
+  classDef warn fill:#FFF6E5,stroke:#DC8A00,color:#7A4A00
+  classDef ext fill:#F7F8FA,stroke:#98A2B3,color:#344054,stroke-dasharray:5 4

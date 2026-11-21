@@ -22,6 +22,7 @@ import {
     plan as planRoute,
 } from "@/routes/billing";
 import type { Plan } from "@/types/lexlink";
+import { formatDate, formatDateTime, formatMoney, formatNumber } from "@/components/brand/money";
 
 type TransactionRow = {
     id: number;
@@ -67,17 +68,10 @@ type Props = {
     topup: { min: number; max: number; presets: number[] };
 };
 
-const nf = new Intl.NumberFormat("uz-UZ");
-const som = (v: number) => `${nf.format(v)} so'm`;
-const dateTime = (iso: string) =>
-    new Intl.DateTimeFormat("uz-UZ", {
-        dateStyle: "short",
-        timeStyle: "short",
-    }).format(new Date(iso));
-const date = (iso: string) =>
-    new Intl.DateTimeFormat("uz-UZ", { dateStyle: "long" }).format(
-        new Date(iso),
-    );
+const nf = { format: (n: number) => formatNumber(n) };
+const som = (v: number) => formatMoney(v);
+const dateTime = (iso: string) => formatDateTime(iso);
+const date = (iso: string) => formatDate(iso);
 
 export default function BillingIndex({
     plans,
@@ -95,7 +89,7 @@ export default function BillingIndex({
     return (
         <>
             <Head title="Tarif va balans" />
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+            <div className="flex w-full flex-col gap-8">
                 <header className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold tracking-tight">
                         Tarif va balans

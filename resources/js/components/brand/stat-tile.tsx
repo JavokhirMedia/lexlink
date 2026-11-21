@@ -1,15 +1,17 @@
 /**
- * <StatTile label="Faol ishlar" value={12} hint="+2 shu hafta" />
+ * <StatTile label="Faol ishlar" value={12} hint="+2 o'tgan haftaga nisbatan" />
+ *
+ * Label + figure + comparison. No icons, no sparklines (docs/DESIGN.md).
  *
  * Props:
- *   label:      string — short caption above the value
- *   value:      ReactNode — the number (wrap money in <Money/>); tabular nums
- *   hint?:      ReactNode — small muted line below
- *   icon?:      LucideIcon — optional icon at top-right
- *   tone?:      'default' | 'success' | 'warning' | 'danger' | 'gold' — tints
- *               the hint/icon only, the tile stays white
- *   href?:      string — if set, the tile becomes an Inertia <Link>
+ *   label:      string — short caption above the value (secondary, 14)
+ *   value:      ReactNode — the figure (wrap money in <Money/>); 28px 600 tabular
+ *   hint?:      ReactNode — comparison / meta line below (13, muted)
+ *   tone?:      'default' | 'success' | 'warning' | 'danger' | 'brand' — colours the hint only
+ *   emphasis?:  boolean — the one key figure on the screen: value in brand blue
+ *   href?:      string — the tile becomes an Inertia <Link>
  *   className?: string
+ *   icon?:      deprecated, ignored (kept so old call sites compile)
  */
 import { Link } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
@@ -17,19 +19,20 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 const TONES = {
-    default: 'text-muted-foreground',
+    default: 'text-ink-muted',
     success: 'text-success',
     warning: 'text-warning',
     danger: 'text-danger',
-    gold: 'text-gold',
+    brand: 'text-brand',
+    gold: 'text-brand',
 } as const;
 
 export function StatTile({
     label,
     value,
     hint,
-    icon: Icon,
     tone = 'default',
+    emphasis = false,
     href,
     className,
 }: {
@@ -38,34 +41,33 @@ export function StatTile({
     hint?: ReactNode;
     icon?: LucideIcon;
     tone?: keyof typeof TONES;
+    emphasis?: boolean;
     href?: string;
     className?: string;
 }) {
     const body = (
         <>
-            <div className="flex items-start justify-between gap-3">
-                <span className="text-[13px] text-muted-foreground">
-                    {label}
-                </span>
-                {Icon && (
-                    <Icon
-                        aria-hidden="true"
-                        className={cn('size-4 shrink-0', TONES[tone])}
-                    />
+            <span className="text-sm text-ink-secondary">{label}</span>
+            <span
+                className={cn(
+                    'mt-2 block text-[28px] leading-[34px] font-semibold tabular-nums',
+                    emphasis ? 'text-brand' : 'text-ink',
                 )}
-            </div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            >
                 {value}
-            </div>
+            </span>
             {hint && (
-                <div className={cn('mt-1 text-xs', TONES[tone])}>{hint}</div>
+                <span className={cn('mt-1 block text-meta', TONES[tone])}>
+                    {hint}
+                </span>
             )}
         </>
     );
 
     const classes = cn(
-        'block rounded-lg border bg-card p-4',
-        href && 'transition-colors hover:border-primary/40 hover:bg-accent/40',
+        'flex flex-col rounded-lg border bg-card p-6 shadow-xs',
+        href &&
+            'focus-ring transition-colors hover:border-brand-border hover:bg-brand-soft/40',
         className,
     );
 
