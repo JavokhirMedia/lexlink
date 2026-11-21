@@ -5,7 +5,7 @@ namespace App\Services\Gov\Dto;
 final readonly class GovSubmission
 {
     /**
-     * @param  string  $type  court_case|salary|property|vehicle
+     * @param  string  $type  DataRequestType value (court_case|tax_info|salary|property|vehicle|business_shares|bank_accounts|border_crossing)
      * @param  array{type: string, number: string}  $legalBasis
      * @param  array{from?: string, to?: string}|null  $period  YYYY-MM
      * @param  array<string, mixed>  $params

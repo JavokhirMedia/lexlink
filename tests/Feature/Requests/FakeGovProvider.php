@@ -105,4 +105,17 @@ class FakeGovProvider implements GovDataProvider
             'signature' => hash('sha256', json_encode($data)),
         ];
     }
+
+    /** @var array<string, array<string, mixed>> */
+    public array $orders = [];
+
+    public function advocateOrder(string $number): ?array
+    {
+        return $this->orders[$number] ?? null;
+    }
+
+    public function issueAdvocateOrder(array $data): array
+    {
+        throw new GovApiException('not faked');
+    }
 }

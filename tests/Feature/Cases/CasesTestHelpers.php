@@ -58,7 +58,39 @@ trait CasesTestHelpers
             {
                 return [];
             }
+
+            public function advocateOrder(string $number): ?array
+            {
+                return $this->test->advocateOrderFor($number);
+            }
+
+            public function issueAdvocateOrder(array $data): array
+            {
+                return [];
+            }
         });
+    }
+
+    /** @var array<string, array|null> e-order registry rows keyed by number */
+    protected array $advocateOrders = [];
+
+    public function advocateOrderFor(string $number): ?array
+    {
+        return $this->advocateOrders[$number] ?? null;
+    }
+
+    /** Register an active e-order of $advocate in the fake registry. */
+    protected function order(string $number, User $advocate, array $override = []): array
+    {
+        return $this->advocateOrders[$number] = array_replace([
+            'order_number' => $number,
+            'license_number' => $advocate->advocateProfile->license_number,
+            'advocate_name' => $advocate->name,
+            'client' => ['pinfl' => '42303910261025', 'full_name' => 'Karimova Nilufar Shavkatovna'],
+            'matter' => 'Aliment undirish',
+            'issued_at' => now()->subDays(3)->toDateString(),
+            'status' => 'active',
+        ], $override);
     }
 
     public function courtDecisionFor(string $number): ?array

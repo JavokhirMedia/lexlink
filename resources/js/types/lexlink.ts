@@ -1,6 +1,6 @@
 // Shared LexLink domain types. Extend (don't rename) fields; backend serializes snake_case.
 
-export type UserRole = 'advocate' | 'lawyer' | 'admin';
+export type UserRole = 'advocate' | 'lawyer' | 'admin' | 'client';
 
 export type SharedAuthUser = {
     id: number;
@@ -13,7 +13,7 @@ export type SharedAuthUser = {
     can_sign: boolean;
 };
 
-export type DataRequestType = 'court_case' | 'salary' | 'property' | 'vehicle';
+export type DataRequestType = 'court_case' | 'tax_info' | 'salary' | 'property' | 'vehicle' | 'business_shares' | 'bank_accounts' | 'border_crossing';
 
 export type DataRequestStatus =
     | 'draft'
@@ -105,6 +105,22 @@ export type AiAnalysis = {
     disclaimer?: string;
     data_request_id?: number | null;
     case_id?: number | null;
+    /** exact egasizlantirilgan text sent to the AI (null = AI not called) */
+    sent_payload?: string | null;
+    anonymization?: AnonymizationReport | null;
+};
+
+/** What was sent to the AI (App\Services\Ai\Anonymization\AnonymizationReport) — categories and counts only, never values. */
+export type AnonymizationReport = {
+    leak_check: 'passed' | 'blocked' | 'not_run';
+    ai_called: boolean;
+    legal_basis: string[];
+    replaced?: { label: string; count: number }[];
+    replaced_by_kind?: Record<string, number>;
+    dropped?: string[];
+    generalized?: string[];
+    blocked?: { category: string; label: string; count: number }[];
+    note?: string;
 };
 
 export type AuditEntry = {
@@ -165,5 +181,89 @@ export type LawAnswer = {
     model: string;
     tokens: number;
     prompt_version: string;
+    disclaimer: string;
+    /** personal data was found in the question and replaced before sending */
+    pii_removed?: boolean;
+    sent_payload?: string | null;
+    anonymization?: AnonymizationReport | null;
+};
+
+// ---- Advocate order path + client portal (order-client) ----
+
+/** Answer deadline fields on serialized data requests (Advokatura to'g'risidagi Qonun 7¹-modda). */
+export type RequestDeadlineFields = {
+    due_at: string | null;
+    deadline_basis: 'default' | 'proceedings' | 'court_decision' | null;
+    deadline_label: string | null;
+    answered_on_time: boolean | null;
+};
+
+export type ClientCaseInfo = {
+    id: number;
+    title: string;
+    court_case_number: string | null;
+    category_label: string | null;
+    status: 'active' | 'closed';
+    order_number: string;
+    advocate: { name: string | null; license_number: string | null; bureau_name: string | null };
+};
+
+export type ClientRequestStep = {
+    label: string;
+    state: 'done' | 'current' | 'upcoming' | 'success' | 'danger';
+    at: string | null;
+};
+
+export type ClientRequestView = {
+    id: number;
+    type_label: string;
+    agency: string;
+    status: DataRequestStatus;
+    status_label: string;
+    submitted_at: string | null;
+    completed_at: string | null;
+    due_at: string | null;
+    deadline_label: string | null;
+    answered_on_time: boolean | null;
+    rejection_reason: string | null;
+    steps: ClientRequestStep[];
+    summary_items: { label: string; value: string }[];
+    ai_summary: string | null;
+};
+
+// ---- legal matrix (App\Support\LegalMatrix::toArray()) ----
+
+export type LegalMatrixAccess = 'order' | 'court';
+
+export type LegalMatrixRef = {
+    law: string;
+    article: string | null;
+    note: string;
+    url: string | null;
+};
+
+export type LegalMatrixType = {
+    value: DataRequestType;
+    label: string;
+    agency: string;
+    access: LegalMatrixAccess;
+    items: string[];
+    why: string;
+    refs: LegalMatrixRef[];
+    verify?: boolean;
+    accepted_bases: { value: LegalBasisType; label: string }[];
+};
+
+export type LegalMatrixDomain = {
+    key: string;
+    title: string;
+    summary: string;
+    types: LegalMatrixType[];
+};
+
+export type LegalMatrix = {
+    domains: LegalMatrixDomain[];
+    out_of_scope: { title: string; why: string }[];
+    deadlines: { default_days: number; no_info_notice_days: number; proceedings_work_days: number };
     disclaimer: string;
 };

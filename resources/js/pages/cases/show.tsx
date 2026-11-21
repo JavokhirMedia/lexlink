@@ -1,10 +1,12 @@
-import { Head, Link, router, useForm } from "@inertiajs/react";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/react";
 import {
     AlertTriangle,
     CheckCircle2,
+    Copy,
     FileText,
     Gavel,
     History,
+    Link2,
     Plus,
     RefreshCw,
     ScrollText,
@@ -32,7 +34,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { index as casesIndex, show as casesShow } from "@/routes/cases";
+import advocateOrdersRoutes from "@/routes/cases/advocate-orders";
 import basesRoutes from "@/routes/cases/bases";
+import clientLinksRoutes from "@/routes/cases/client-links";
 import membersRoutes from "@/routes/cases/members";
 import secrecyDeclaration from "@/routes/cases/secrecy-declaration";
 import type {
@@ -56,6 +60,51 @@ type BasisDetail = LegalBasis & {
     verification_error: string | null;
     has_file: boolean;
     created_by: { id: number; name: string } | null;
+    purpose: string | null;
+    order: {
+        client_name: string | null;
+        client_pinfl_masked: string | null;
+        matter: string | null;
+        license_number: string | null;
+        advocate_name: string | null;
+        status: string | null;
+        client_known: boolean;
+    } | null;
+};
+
+type OrderTypeInfo = {
+    value: DataRequestType;
+    label: string;
+    why: string | null;
+};
+
+type OrderMatrix = {
+    order: OrderTypeInfo[];
+    court_only: OrderTypeInfo[];
+    deadlines: {
+        default_days: number;
+        no_info_notice_days: number;
+        proceedings_work_days: number;
+    };
+    law_ref: string;
+};
+
+type IssuedOrder = {
+    order_number: string;
+    client_name: string;
+    matter: string;
+    issued_at: string | null;
+};
+
+type ClientLink = {
+    id: number;
+    order_number: string;
+    client_name: string | null;
+    url: string | null;
+    created_at: string | null;
+    granted_at: string | null;
+    last_viewed_at: string | null;
+    revoked_at: string | null;
 };
 
 type Member = {
@@ -108,6 +157,8 @@ type Props = {
     available_lawyers: { id: number; name: string; email: string | null }[];
     request_types: RequestTypeInfo[];
     advocate_order_types: DataRequestType[];
+    order_matrix: OrderMatrix;
+    client_links: ClientLink[];
 };
 
 type Tab = "bases" | "requests" | "team";
@@ -172,7 +223,11 @@ export default function CaseShow(props: Props) {
         <>
             <Head title={legalCase.title} />
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
-                <CaseHeader legalCase={legalCase} members={members} canViewResponses={can.view_responses} />
+                <CaseHeader
+                    legalCase={legalCase}
+                    members={members}
+                    canViewResponses={can.view_responses}
+                />
 
                 {membership.role === "lawyer" &&
                     !membership.secrecy_declared_at && (
@@ -381,7 +436,8 @@ function BasesSection({
     can,
     coverage,
     request_types,
-    advocate_order_types,
+    order_matrix,
+    client_links,
 }: Props) {
     const [adding, setAdding] = useState(false);
 
@@ -413,8 +469,8 @@ function BasesSection({
                 {adding && (
                     <AddBasisForm
                         caseId={legalCase.id}
-                        orderTypes={advocate_order_types}
-                        requestTypes={request_types}
+                        legalCase={legalCase}
+                        orderMatrix={order_matrix}
                         onDone={() => setAdding(false)}
                     />
                 )}
@@ -424,10 +480,10 @@ function BasesSection({
                         <Gavel className="size-7 text-muted-foreground" />
                         <p className="font-medium">Huquqiy asos yo'q</p>
                         <p className="max-w-md text-sm text-muted-foreground">
-                            Sud qarori (ajrimi) raqamini kiriting — tizim uni
-                            sud reyestridan tekshiradi. Ko'chmas mulk,
-                            avtotransport va sud ishi uchun advokat orderi ham
-                            yetarli.
+                            Advokat orderi raqamini kiriting — ko'chmas mulk,
+                            avtotransport, sud ishi, soliq (ochiq qism) va
+                            ulushlar uchun yetarli. Ish haqi, bank siri va
+                            chegaradan o'tish uchun sud qarori (ajrimi) kerak.
                         </p>
                     </div>
                 ) : (
@@ -437,8 +493,17 @@ function BasesSection({
                             caseId={legalCase.id}
                             basis={b}
                             canVerify={can.add_basis}
+                            courtOnly={order_matrix.court_only}
                         />
                     ))
+                )}
+
+                {can.add_basis && (
+                    <ClientAccessSection
+                        caseId={legalCase.id}
+                        bases={bases}
+                        links={client_links}
+                    />
                 )}
             </div>
 
@@ -451,10 +516,12 @@ function BasisCard({
     caseId,
     basis,
     canVerify,
+    courtOnly,
 }: {
     caseId: number;
     basis: BasisDetail;
     canVerify: boolean;
+    courtOnly: OrderTypeInfo[];
 }) {
     const [verifying, setVerifying] = useState(false);
     const status = STATUS_META[basis.verification_status];
@@ -576,6 +643,48 @@ function BasisCard({
                     </div>
                 </dl>
 
+                {basis.type === "advocate_order" &&
+                    (basis.order || basis.purpose) && (
+                        <dl className="grid gap-x-6 gap-y-3 rounded-md bg-muted/40 px-3 py-2 text-sm sm:grid-cols-3">
+                            {basis.order && (
+                                <>
+                                    <div>
+                                        <dt className="text-muted-foreground">
+                                            Ishonch bildiruvchi (mijoz)
+                                        </dt>
+                                        <dd>
+                                            {basis.order.client_name ?? "—"}
+                                            {basis.order
+                                                .client_pinfl_masked && (
+                                                <div className="font-mono text-xs text-muted-foreground">
+                                                    JShShIR{" "}
+                                                    {
+                                                        basis.order
+                                                            .client_pinfl_masked
+                                                    }
+                                                </div>
+                                            )}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-muted-foreground">
+                                            Order bo'yicha ish mazmuni
+                                        </dt>
+                                        <dd>{basis.order.matter ?? "—"}</dd>
+                                    </div>
+                                </>
+                            )}
+                            {basis.purpose && (
+                                <div>
+                                    <dt className="text-muted-foreground">
+                                        So'rov maqsadi
+                                    </dt>
+                                    <dd>{basis.purpose}</dd>
+                                </div>
+                            )}
+                        </dl>
+                    )}
+
                 <div className="space-y-2">
                     <div className="text-sm text-muted-foreground">
                         Qamraydigan ma'lumot turlari
@@ -606,9 +715,12 @@ function BasisCard({
                         )}
                     {basis.type === "advocate_order" && (
                         <p className="text-xs text-muted-foreground">
-                            Advokat orderi ish haqi (soliq siri) ma'lumotini
-                            ochmaydi — buning uchun sud qarori yoki ajrimi
-                            kerak.
+                            Advokat orderi{" "}
+                            {courtOnly
+                                .map((t) => t.label.toLowerCase())
+                                .join(", ")}{" "}
+                            ma'lumotini ochmaydi — buning uchun sud qarori yoki
+                            ajrimi kerak.
                         </p>
                     )}
                 </div>
@@ -619,13 +731,13 @@ function BasisCard({
 
 function AddBasisForm({
     caseId,
-    orderTypes,
-    requestTypes,
+    legalCase,
+    orderMatrix,
     onDone,
 }: {
     caseId: number;
-    orderTypes: DataRequestType[];
-    requestTypes: RequestTypeInfo[];
+    legalCase: CaseDetail;
+    orderMatrix: OrderMatrix;
     onDone: () => void;
 }) {
     const form = useForm<{
@@ -636,21 +748,23 @@ function AddBasisForm({
         subject_name: string;
         allowed_types: DataRequestType[];
         expires_at: string;
+        purpose: string;
     }>({
-        type: "court_decision",
+        type: "advocate_order",
         number: "",
         file: null,
         subject_pinfl: "",
         subject_name: "",
         allowed_types: [],
         expires_at: "",
+        purpose: "",
     });
     const { data, setData, errors, processing } = form;
     const isOrder = data.type === "advocate_order";
-    const labelOf = (t: DataRequestType) =>
-        requestTypes.find((r) => r.value === t)?.label ?? t;
     const errorFor = (key: string) =>
         (errors as Record<string, string | undefined>)[key];
+    const [issuing, setIssuing] = useState(false);
+    const [issued, setIssued] = useState<IssuedOrder | null>(null);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
@@ -682,10 +796,13 @@ function AddBasisForm({
                 {(
                     [
                         {
+                            value: "advocate_order",
+                            label: "Advokat orderi (advokat so'rovi)",
+                        },
+                        {
                             value: "court_decision",
                             label: "Sud qarori / ajrimi",
                         },
-                        { value: "advocate_order", label: "Advokat orderi" },
                     ] as const
                 ).map((o) => (
                     <button
@@ -707,9 +824,18 @@ function AddBasisForm({
             </div>
 
             <p className="text-sm text-muted-foreground">
-                {isOrder
-                    ? "Order advokat tomonidan beriladi, shuning uchun u faqat ko'chmas mulk, avtotransport va sud ishi ma'lumotlarini qamraydi."
-                    : "Raqam sud reyestridan tekshiriladi: subyekt, sud, muddat va ruxsat etilgan ma'lumot turlari avtomatik to'ldiriladi."}
+                {isOrder ? (
+                    <>
+                        Advokatura to'g'risidagi Qonunning 6- va 7¹-moddalari:
+                        advokat orderi asosida so'rov yuboriladi, idora{" "}
+                        {orderMatrix.deadlines.default_days} kun ichida, sud
+                        ishi boshlangan bo'lsa —{" "}
+                        {orderMatrix.deadlines.proceedings_work_days} ish kuni
+                        ichida javob beradi. Sud qarori talab qilinmaydi.
+                    </>
+                ) : (
+                    "Raqam sud reyestridan tekshiriladi: subyekt, sud, muddat va ruxsat etilgan ma'lumot turlari avtomatik to'ldiriladi."
+                )}
             </p>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -722,9 +848,19 @@ function AddBasisForm({
                         value={data.number}
                         onChange={(e) => setData("number", e.target.value)}
                         className="font-mono"
-                        placeholder={isOrder ? "ORD-2026-001" : "SA-2026-0001"}
+                        placeholder={
+                            isOrder ? "ORD-2026-000457" : "2-1001-2611/0457"
+                        }
                         required
                     />
+                    {isOrder && (
+                        <p className="text-xs text-muted-foreground">
+                            Advokatlar palatasining elektron orderlar
+                            reyestridan tekshiriladi: order faol va aynan
+                            sizning litsenziyangiz bilan berilgan bo'lishi
+                            kerak.
+                        </p>
+                    )}
                     <InputError message={errors.number} />
                 </div>
                 <div className="grid gap-2">
@@ -748,10 +884,43 @@ function AddBasisForm({
 
             {isOrder && (
                 <>
+                    {issued ? (
+                        <p className="flex items-start gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                            <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
+                            <span>
+                                Elektron order berildi:{" "}
+                                <span className="font-mono font-medium">
+                                    {issued.order_number}
+                                </span>{" "}
+                                · {issued.client_name} · {issued.matter}
+                            </span>
+                        </p>
+                    ) : issuing ? (
+                        <IssueOrderForm
+                            caseId={caseId}
+                            legalCase={legalCase}
+                            onCancel={() => setIssuing(false)}
+                            onIssued={(o) => {
+                                setIssued(o);
+                                setIssuing(false);
+                                setData("number", o.order_number);
+                            }}
+                        />
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIssuing(true)}
+                        >
+                            <ScrollText /> Elektron order berish (demo)
+                        </Button>
+                    )}
+
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div className="grid gap-2">
                             <Label htmlFor="subject-pinfl">
-                                Subyekt JShShIR
+                                So'raladigan shaxs JShShIR
                             </Label>
                             <Input
                                 id="subject-pinfl"
@@ -771,7 +940,7 @@ function AddBasisForm({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="subject-name">
-                                Subyekt F.I.Sh.
+                                So'raladigan shaxs F.I.Sh.
                             </Label>
                             <Input
                                 id="subject-name"
@@ -797,39 +966,84 @@ function AddBasisForm({
                             <InputError message={errors.expires_at} />
                         </div>
                     </div>
+                    <p className="-mt-2 text-xs text-muted-foreground">
+                        Order ishonch bildiruvchini (mijozni) vakillik qilish
+                        vakolatini beradi — ma'lumoti so'raladigan shaxsni
+                        (masalan, javobgarni) advokat o'zi ko'rsatadi va so'rov
+                        maqsadini ish mazmuniga bog'laydi.
+                    </p>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="order-purpose">So'rov maqsadi</Label>
+                        <textarea
+                            id="order-purpose"
+                            rows={2}
+                            maxLength={500}
+                            value={data.purpose}
+                            onChange={(e) => setData("purpose", e.target.value)}
+                            placeholder="Masalan: aliment undirish ishi bo'yicha javobgarning undiruv qaratiladigan mol-mulkini aniqlash"
+                            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        />
+                        <InputError message={errors.purpose} />
+                    </div>
+
                     <fieldset className="space-y-2">
                         <legend className="text-sm font-medium">
                             Order qamraydigan ma'lumotlar
                         </legend>
-                        <div className="flex flex-wrap gap-4">
-                            {orderTypes.map((t) => (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {orderMatrix.order.map((t) => (
                                 <label
-                                    key={t}
+                                    key={t.value}
                                     className="flex items-center gap-2 text-sm"
                                 >
                                     <Checkbox
-                                        checked={data.allowed_types.includes(t)}
+                                        checked={data.allowed_types.includes(
+                                            t.value,
+                                        )}
                                         onCheckedChange={(v) =>
                                             setData(
                                                 "allowed_types",
                                                 v === true
-                                                    ? [...data.allowed_types, t]
+                                                    ? [
+                                                          ...data.allowed_types,
+                                                          t.value,
+                                                      ]
                                                     : data.allowed_types.filter(
-                                                          (x) => x !== t,
+                                                          (x) => x !== t.value,
                                                       ),
                                             )
                                         }
                                     />
-                                    {labelOf(t)}
+                                    {t.label}
                                 </label>
                             ))}
-                            <label
-                                className="flex items-center gap-2 text-sm text-muted-foreground"
-                                title="Faqat sud qarori asosida"
-                            >
-                                <Checkbox checked={false} disabled />
-                                {labelOf("salary")} — faqat sud qarori
-                            </label>
+                        </div>
+                        <div className="space-y-1.5 border-t pt-2">
+                            <p className="text-xs font-medium text-muted-foreground">
+                                Faqat sud qarori bilan (orderga kiritilmaydi):
+                            </p>
+                            {orderMatrix.court_only.map((t) => (
+                                <label
+                                    key={t.value}
+                                    className="flex items-start gap-2 text-sm text-muted-foreground opacity-70"
+                                    title={t.why ?? undefined}
+                                >
+                                    <Checkbox
+                                        checked={false}
+                                        disabled
+                                        className="mt-0.5"
+                                    />
+                                    <span>
+                                        {t.label}
+                                        {t.why && (
+                                            <span className="block text-xs">
+                                                {t.why}
+                                            </span>
+                                        )}
+                                    </span>
+                                </label>
+                            ))}
                         </div>
                         <InputError
                             message={
@@ -846,10 +1060,302 @@ function AddBasisForm({
                     Bekor qilish
                 </Button>
                 <Button type="submit" disabled={processing}>
-                    {isOrder ? "Orderni qo'shish" : "Qo'shish va tekshirish"}
+                    {isOrder
+                        ? "Orderni qo'shish va tekshirish"
+                        : "Qo'shish va tekshirish"}
                 </Button>
             </div>
         </form>
+    );
+}
+
+function IssueOrderForm({
+    caseId,
+    legalCase,
+    onIssued,
+    onCancel,
+}: {
+    caseId: number;
+    legalCase: CaseDetail;
+    onIssued: (o: IssuedOrder) => void;
+    onCancel: () => void;
+}) {
+    const [clientPinfl, setClientPinfl] = useState("");
+    const [clientName, setClientName] = useState(legalCase.client_name);
+    const [matter, setMatter] = useState(
+        legalCase.category_label ?? legalCase.title,
+    );
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [busy, setBusy] = useState(false);
+
+    const issue = () => {
+        setBusy(true);
+        router.post(
+            advocateOrdersRoutes.store.url(caseId),
+            {
+                client_pinfl: clientPinfl,
+                client_name: clientName,
+                matter,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: (e) => setErrors(e as Record<string, string>),
+                onSuccess: (page) => {
+                    const o = (page.flash as Record<string, unknown>)
+                        ?.issued_order as IssuedOrder | undefined;
+                    if (o?.order_number) {
+                        onIssued(o);
+                    }
+                },
+                onFinish: () => setBusy(false),
+            },
+        );
+    };
+
+    return (
+        <div className="space-y-3 rounded-md border border-dashed p-4">
+            <div>
+                <p className="text-sm font-medium">
+                    Elektron order berish (demo)
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    Advokatlar palatasining elektron orderlar reyestrida ushbu
+                    ish mijozi uchun order rasmiylashtiriladi va raqami formaga
+                    qo'yiladi.
+                </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-1.5">
+                    <Label htmlFor="order-client-pinfl" className="text-xs">
+                        Mijoz JShShIR
+                    </Label>
+                    <Input
+                        id="order-client-pinfl"
+                        inputMode="numeric"
+                        maxLength={14}
+                        value={clientPinfl}
+                        onChange={(e) =>
+                            setClientPinfl(e.target.value.replace(/\D/g, ""))
+                        }
+                        className="font-mono"
+                        placeholder="14 ta raqam"
+                    />
+                    <InputError message={errors.client_pinfl} />
+                </div>
+                <div className="grid gap-1.5">
+                    <Label htmlFor="order-client-name" className="text-xs">
+                        Mijoz F.I.Sh.
+                    </Label>
+                    <Input
+                        id="order-client-name"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                    />
+                    <InputError message={errors.client_name} />
+                </div>
+                <div className="grid gap-1.5">
+                    <Label htmlFor="order-matter" className="text-xs">
+                        Ish mazmuni
+                    </Label>
+                    <Input
+                        id="order-matter"
+                        value={matter}
+                        onChange={(e) => setMatter(e.target.value)}
+                    />
+                    <InputError message={errors.matter} />
+                </div>
+            </div>
+            <div className="flex justify-end gap-2">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onCancel}
+                >
+                    Bekor qilish
+                </Button>
+                <Button type="button" size="sm" onClick={issue} disabled={busy}>
+                    Order berish
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function ClientAccessSection({
+    caseId,
+    bases,
+    links,
+}: {
+    caseId: number;
+    bases: BasisDetail[];
+    links: ClientLink[];
+}) {
+    const { flash } = usePage();
+    const newUrl =
+        typeof flash?.client_link_url === "string"
+            ? flash.client_link_url
+            : null;
+    const candidates = bases.filter(
+        (b) =>
+            b.type === "advocate_order" &&
+            b.verification_status === "verified" &&
+            b.order?.client_known,
+    );
+    const form = useForm<{ order_number: string }>({
+        order_number: candidates[0]?.number ?? "",
+    });
+    const active = links.filter((l) => !l.revoked_at);
+
+    const create = (e: FormEvent) => {
+        e.preventDefault();
+        form.submit(clientLinksRoutes.store(caseId), { preserveScroll: true });
+    };
+
+    return (
+        <section className="space-y-3 rounded-lg border bg-card p-5">
+            <div className="flex items-start gap-3">
+                <Link2 className="mt-0.5 size-5 text-muted-foreground" />
+                <div>
+                    <h3 className="font-medium">Mijoz uchun kirish</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Ishonch bildiruvchi OneID orqali kirib, ish va so'rovlar
+                        holatini ko'radi. Kirish faqat uning JShShIR'i advokat
+                        orderidagi mijoz JShShIR'iga mos kelsa beriladi. To'liq
+                        javoblar advokatda qoladi.
+                    </p>
+                </div>
+            </div>
+
+            {newUrl && <CopyLink url={newUrl} highlight />}
+
+            <form onSubmit={create} className="flex flex-wrap items-end gap-2">
+                <div className="grid min-w-56 flex-1 gap-1.5">
+                    <Label htmlFor="client-link-order" className="text-xs">
+                        Advokat orderi
+                    </Label>
+                    {candidates.length > 0 ? (
+                        <Select
+                            value={form.data.order_number}
+                            onValueChange={(v) =>
+                                form.setData("order_number", v)
+                            }
+                        >
+                            <SelectTrigger id="client-link-order">
+                                <SelectValue placeholder="Orderni tanlang" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {candidates.map((b) => (
+                                    <SelectItem key={b.id} value={b.number}>
+                                        {b.number} · {b.order?.client_name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    ) : (
+                        <Input
+                            id="client-link-order"
+                            className="font-mono"
+                            placeholder="ORD-2026-000457"
+                            value={form.data.order_number}
+                            onChange={(e) =>
+                                form.setData("order_number", e.target.value)
+                            }
+                        />
+                    )}
+                </div>
+                <Button type="submit" size="sm" disabled={form.processing}>
+                    <Link2 /> Havola yaratish
+                </Button>
+            </form>
+            <InputError message={form.errors.order_number} />
+
+            {active.length > 0 && (
+                <ul className="divide-y rounded-md border text-sm">
+                    {active.map((l) => (
+                        <li
+                            key={l.id}
+                            className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                        >
+                            <div className="min-w-0">
+                                <span className="font-mono">
+                                    {l.order_number}
+                                </span>{" "}
+                                · {l.client_name ?? "Mijoz"}
+                                <div className="text-xs text-muted-foreground">
+                                    {l.granted_at
+                                        ? `Mijoz kirgan: ${fmtDate(l.granted_at)}`
+                                        : "Mijoz hali kirmagan"}
+                                    {l.last_viewed_at &&
+                                        ` · oxirgi ko'rish ${fmtDate(l.last_viewed_at)}`}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                {l.url && <CopyLink url={l.url} />}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                        router.delete(
+                                            clientLinksRoutes.destroy.url({
+                                                legalCase: caseId,
+                                                link: l.id,
+                                            }),
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    <Trash2 /> Bekor qilish
+                                </Button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+}
+
+function CopyLink({
+    url,
+    highlight = false,
+}: {
+    url: string;
+    highlight?: boolean;
+}) {
+    const [copied, setCopied] = useState(false);
+
+    return highlight ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                {url}
+            </span>
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                    void navigator.clipboard?.writeText(url);
+                    setCopied(true);
+                }}
+            >
+                <Copy /> {copied ? "Nusxalandi" : "Nusxalash"}
+            </Button>
+        </div>
+    ) : (
+        <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            title={url}
+            onClick={() => {
+                void navigator.clipboard?.writeText(url);
+                setCopied(true);
+            }}
+        >
+            <Copy /> {copied ? "Nusxalandi" : "Havola"}
+        </Button>
     );
 }
 

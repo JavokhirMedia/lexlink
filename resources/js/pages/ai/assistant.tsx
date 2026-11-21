@@ -1,16 +1,17 @@
-import { Head, useHttp } from '@inertiajs/react';
-import { BookOpen, CornerDownLeft, Scale } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
-import { AiDisclaimer } from '@/components/ai/ai-disclaimer';
-import { CitationChips } from '@/components/ai/citation-chips';
-import { modelLabel } from '@/components/ai/format';
-import { AiMarkdown } from '@/components/ai/markdown';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { assistant } from '@/routes/ai';
-import { ask } from '@/routes/ai/assistant';
-import type { LawAnswer } from '@/types/lexlink';
+import { Head, useHttp } from "@inertiajs/react";
+import { BookOpen, CornerDownLeft, Scale } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
+import { AiDisclaimer } from "@/components/ai/ai-disclaimer";
+import { AiSentPayload } from "@/components/ai/ai-sent-payload";
+import { CitationChips } from "@/components/ai/citation-chips";
+import { modelLabel } from "@/components/ai/format";
+import { AiMarkdown } from "@/components/ai/markdown";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { assistant } from "@/routes/ai";
+import { ask } from "@/routes/ai/assistant";
+import type { LawAnswer } from "@/types/lexlink";
 
 type Law = {
     slug: string;
@@ -31,11 +32,11 @@ type Message = {
 
 export default function Assistant({ laws, ai_enabled, examples }: Props) {
     const [messages, setMessages] = useState<Message[]>([]);
-    const http = useHttp<{ question: string }, LawAnswer>({ question: '' });
+    const http = useHttp<{ question: string }, LawAnswer>({ question: "" });
     const bottom = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }, [messages]);
 
     const send = (question: string) => {
@@ -45,14 +46,14 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
         }
         const id = Date.now();
         setMessages((m) => [...m, { id, question: q }]);
-        http.setData('question', q);
+        http.setData("question", q);
         http.transform(() => ({ question: q }));
         http.post(ask.url(), {
             onSuccess: (answer) => {
                 setMessages((m) =>
                     m.map((x) => (x.id === id ? { ...x, answer } : x)),
                 );
-                http.setData('question', '');
+                http.setData("question", "");
             },
             onError: () =>
                 setMessages((m) =>
@@ -79,7 +80,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
     };
 
     const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             send(http.data.question);
         }
@@ -105,7 +106,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                             </p>
                         </div>
                         <Badge variant="outline">
-                            {ai_enabled ? 'Gemini + lex.uz' : 'Qidiruv rejimi'}
+                            {ai_enabled ? "Gemini + lex.uz" : "Qidiruv rejimi"}
                         </Badge>
                     </div>
 
@@ -156,6 +157,18 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                                             <CitationChips
                                                 citations={m.answer.citations}
                                             />
+                                            {m.answer.pii_removed && (
+                                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                    Savoldagi shaxsiy
+                                                    ma'lumotlar olib tashlandi.
+                                                </p>
+                                            )}
+                                            <AiSentPayload
+                                                report={m.answer.anonymization}
+                                                sentPayload={
+                                                    m.answer.sent_payload
+                                                }
+                                            />
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <AiDisclaimer
                                                     text={m.answer.disclaimer}
@@ -178,7 +191,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                             <textarea
                                 value={http.data.question}
                                 onChange={(e) =>
-                                    http.setData('question', e.target.value)
+                                    http.setData("question", e.target.value)
                                 }
                                 onKeyDown={onKey}
                                 rows={2}
@@ -208,8 +221,9 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                             </p>
                         )}
                         <p className="mt-2 text-xs text-muted-foreground">
-                            Shaxsiy ma'lumotlar (JShShIR, telefon, pasport)
-                            yuborishdan oldin maxfiylashtiriladi.
+                            Shaxsiy ma'lumotlar (F.I.Sh., JShShIR, telefon,
+                            pasport, manzil) AI'ga yuborishdan oldin
+                            egasizlantiriladi (ShMQ 16-modda).
                         </p>
                     </form>
                 </div>
@@ -221,7 +235,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                     </h2>
                     {laws.length === 0 && (
                         <p className="text-sm text-muted-foreground">
-                            Qonunlar import qilinmagan:{' '}
+                            Qonunlar import qilinmagan:{" "}
                             <code>php artisan lex:import --from-snapshot</code>
                         </p>
                     )}
@@ -229,7 +243,7 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
                         {laws.map((l) => (
                             <li key={l.slug}>
                                 <a
-                                    href={l.url ?? 'https://lex.uz'}
+                                    href={l.url ?? "https://lex.uz"}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="block rounded-md border bg-card px-3 py-2 text-sm transition-colors hover:border-primary/50"
@@ -251,5 +265,5 @@ export default function Assistant({ laws, ai_enabled, examples }: Props) {
 }
 
 Assistant.layout = {
-    breadcrumbs: [{ title: 'Huquqiy yordamchi', href: assistant() }],
+    breadcrumbs: [{ title: "Huquqiy yordamchi", href: assistant() }],
 };

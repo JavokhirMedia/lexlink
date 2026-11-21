@@ -4,16 +4,22 @@ namespace App\Http\Controllers\MockGov;
 
 use App\Http\Controllers\Controller;
 use App\Models\Mock\MockAdvocateLicense;
+use App\Models\Mock\MockBankAccount;
+use App\Models\Mock\MockBorderCrossing;
+use App\Models\Mock\MockBusinessShare;
 use App\Models\Mock\MockCourtCase;
 use App\Models\Mock\MockCourtDecision;
 use App\Models\Mock\MockGovRequest;
 use App\Models\Mock\MockPerson;
 use App\Models\Mock\MockProperty;
 use App\Models\Mock\MockSalary;
+use App\Models\Mock\MockTaxProfile;
 use App\Models\Mock\MockVehicle;
 use App\Support\Pinfl;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 
 /**
@@ -25,7 +31,14 @@ class RequestController extends Controller
 {
     use Formats;
 
-    public const TYPES = ['court_case', 'salary', 'property', 'vehicle'];
+    public const TYPES = ['court_case', 'tax_info', 'salary', 'property', 'vehicle', 'business_shares', 'bank_accounts', 'border_crossing'];
+
+    /** Agency's own rule (defence in depth): these registries answer a court decision only, never an advocate order. */
+    public const COURT_ONLY = [
+        'salary' => "Ish haqi ma'lumotlari soliq siri hisoblanadi va faqat sud qarori yoki ajrimi asosida taqdim etiladi. Advokat orderi yetarli emas.",
+        'bank_accounts' => "Bank siri — ma'lumot faqat sudning yozma so'rovi asosida taqdim etiladi (Bank siri to'g'risidagi Qonun 10-modda). Advokat orderi yetarli emas.",
+        'border_crossing' => "Chegaradan o'tish ma'lumotlari shaxsiy hayotga oid maxsus ma'lumot — faqat sud qarori asosida taqdim etiladi. Advokat orderi yetarli emas.",
+    ];
 
     public function store(Request $request): JsonResponse
     {
@@ -126,8 +139,8 @@ class RequestController extends Controller
         }
 
         if ($basis['type'] === 'advocate_order') {
-            if ($type === 'salary') {
-                return "Ish haqi ma'lumotlari soliq siri hisoblanadi va faqat sud qarori yoki ajrimi asosida taqdim etiladi. Advokat orderi yetarli emas.";
+            if (isset(self::COURT_ONLY[$type])) {
+                return self::COURT_ONLY[$type];
             }
         } else {
             $decision = MockCourtDecision::where('number', trim($basis['number']))->first();
@@ -169,6 +182,10 @@ class RequestController extends Controller
             'property' => $this->propertyData($r->subject_pinfl),
             'vehicle' => $this->vehicleData($r->subject_pinfl),
             'court_case' => $this->courtCaseData($r),
+            'tax_info' => $this->taxInfoData($r->subject_pinfl),
+            'business_shares' => ['companies' => $this->companies($r->subject_pinfl)],
+            'bank_accounts' => $this->bankAccountsData($r),
+            'border_crossing' => $this->borderCrossingData($r),
         };
 
         return [
@@ -259,6 +276,126 @@ class RequestController extends Controller
                     'pledge' => $v->pledge,
                 ])->all(),
         ];
+    }
+
+    private function taxInfoData(string $pinfl): array
+    {
+        $t = MockTaxProfile::where('pinfl', $pinfl)->first();
+
+        return [
+            'tin' => $t?->tin,
+            'tax_regime' => $t?->tax_regime,
+            'vat_payer' => (bool) $t?->vat_payer,
+            'individual_entrepreneur' => [
+                'status' => $t?->is_individual_entrepreneur ? "YaTT sifatida ro'yxatdan o'tgan" : 'YaTT emas',
+                'activity' => $t?->ie_activity,
+            ],
+            'tax_debt' => (int) ($t?->tax_debt ?? 0),
+            'taxes_paid_last_year' => (int) ($t?->taxes_paid_last_year ?? 0),
+            'registered_at' => $t?->registered_at?->toDateString(),
+            'participations' => array_map(fn (array $c) => [
+                'name' => $c['name'], 'tin' => $c['tin'], 'share_percent' => $c['share_percent'], 'status' => $c['status'],
+            ], $this->companies($pinfl)),
+        ];
+    }
+
+    private function companies(string $pinfl): array
+    {
+        return MockBusinessShare::where('pinfl', $pinfl)->orderBy('since')->get()
+            ->map(fn (MockBusinessShare $s) => [
+                'name' => $s->company_name,
+                'tin' => $s->company_tin,
+                'share_percent' => $s->share_percent,
+                'charter_capital' => $s->charter_capital,
+                'share_value' => (int) round($s->charter_capital * $s->share_percent / 100),
+                'since' => $s->since->toDateString(),
+                'status' => $s->company_status,
+            ])->all();
+    }
+
+    private function bankAccountsData(MockGovRequest $r): array
+    {
+        $accounts = MockBankAccount::where('pinfl', $r->subject_pinfl)->orderBy('opened_at')->get();
+        $to = now()->subMonth()->format('Y-m');
+
+        return [
+            'accounts' => $accounts->map(fn (MockBankAccount $a) => [
+                'bank' => $a->bank_name,
+                'account' => $a->account_mask,
+                'currency' => $a->currency,
+                'balance' => $a->balance,
+                'turnover_in' => $a->turnover_in,
+                'turnover_out' => $a->turnover_out,
+                'opened_at' => $a->opened_at->toDateString(),
+                'restrictions' => $a->restrictions ?? [],
+            ])->all(),
+            'totals_by_currency' => $accounts->groupBy('currency')->map(fn ($g) => [
+                'balance' => (int) $g->sum('balance'),
+                'turnover_in' => (int) $g->sum('turnover_in'),
+                'turnover_out' => (int) $g->sum('turnover_out'),
+                'accounts' => $g->count(),
+            ])->all(),
+            'turnover_period' => ['from' => now()->subMonths(6)->format('Y-m'), 'to' => $to, 'months' => 6],
+            'as_of' => now()->setTimezone('Asia/Tashkent')->toDateString(),
+        ];
+    }
+
+    private function borderCrossingData(MockGovRequest $r): array
+    {
+        $all = MockBorderCrossing::where('pinfl', $r->subject_pinfl)->orderBy('crossed_at')->get();
+        $q = $all;
+        if ($from = $r->period['from'] ?? null) {
+            $q = $q->filter(fn (MockBorderCrossing $c) => $c->crossed_at->format('Y-m') >= $from);
+        }
+        if ($to = $r->period['to'] ?? null) {
+            $q = $q->filter(fn (MockBorderCrossing $c) => $c->crossed_at->format('Y-m') <= $to);
+        }
+        $row = fn (MockBorderCrossing $c) => [
+            'direction' => $c->direction,
+            'date' => $c->crossed_at->format('Y-m-d H:i'),
+            'country' => $c->country,
+            'checkpoint' => $c->checkpoint,
+        ];
+        $last = $all->last();
+        $lastExit = $all->where('direction', 'exit')->last();
+
+        return [
+            'crossings' => $q->map($row)->values()->all(),
+            'currently_abroad' => $last?->direction === 'exit',
+            'last_exit' => $lastExit ? $row($lastExit) : null,
+            'days_abroad_last_12m' => self::daysAbroad($all->map($row)->all(), now()),
+            'period' => ['from' => $r->period['from'] ?? null, 'to' => $r->period['to'] ?? null],
+        ];
+    }
+
+    /** Days spent abroad within the 12 months before $now (an open exit counts up to $now). */
+    public static function daysAbroad(array $crossings, CarbonInterface $now): int
+    {
+        $windowStart = $now->copy()->subYear();
+        $days = 0;
+        $out = null;
+        foreach ($crossings as $c) {
+            $at = Carbon::parse($c['date']);
+            if ($c['direction'] === 'exit') {
+                $out = $at;
+            } elseif ($out) {
+                $days += self::overlapDays($out, $at, $windowStart, $now);
+                $out = null;
+            }
+        }
+        if ($out) {
+            $days += self::overlapDays($out, $now, $windowStart, $now);
+        }
+
+        return $days;
+    }
+
+    private static function overlapDays(CarbonInterface $a, CarbonInterface $b, CarbonInterface $from, CarbonInterface $to): int
+    {
+        $start = $a->max($from);
+        $end = $b->min($to);
+
+        return $end->greaterThan($start) ? (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) : 0;
     }
 
     private function courtCaseData(MockGovRequest $r): array

@@ -33,4 +33,10 @@ interface GovDataProvider
 
     /** Full result (only when completed): {request_id, status, type, subject:{pinfl(masked), full_name}, data:{...}, issued_at, signature} */
     public function result(string $requestId): array;
+
+    /** Advocate e-order registry: {order_number, license_number, advocate_name, client:{pinfl, full_name, pinfl_masked}, matter, issued_at, status: active|cancelled} or null */
+    public function advocateOrder(string $number): ?array;
+
+    /** Issue an electronic advocate order. $data: {license_number, client_pinfl, client_name, matter}; returns the order (same shape as advocateOrder) */
+    public function issueAdvocateOrder(array $data): array;
 }

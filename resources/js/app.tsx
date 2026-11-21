@@ -1,29 +1,30 @@
-import { createInertiaApp } from '@inertiajs/react';
-import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { initializeTheme } from '@/hooks/use-appearance';
-import AppLayout from '@/layouts/app-layout';
-import AuthLayout from '@/layouts/auth-layout';
-import SettingsLayout from '@/layouts/settings/layout';
-import { configureEcho } from '@laravel/echo-react';
+import { createInertiaApp } from "@inertiajs/react";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { initializeTheme } from "@/hooks/use-appearance";
+import AppLayout from "@/layouts/app-layout";
+import AuthLayout from "@/layouts/auth-layout";
+import SettingsLayout from "@/layouts/settings/layout";
+import { configureEcho } from "@laravel/echo-react";
 
 configureEcho({
-    broadcaster: 'reverb',
+    broadcaster: "reverb",
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'LexLink';
+const appName = import.meta.env.VITE_APP_NAME || "LexLink";
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
-            case name === 'welcome':
-            case name.startsWith('onboarding/'):
-            case name.startsWith('invites/'):
+            case name === "welcome":
+            case name === "legal-map": // public; wraps itself in AppLayout when logged in
+            case name.startsWith("onboarding/"):
+            case name.startsWith("invites/"):
                 return null; // these pages render their own shell
-            case name.startsWith('auth/'):
+            case name.startsWith("auth/"):
                 return AuthLayout;
-            case name.startsWith('settings/'):
+            case name.startsWith("settings/"):
                 return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;
@@ -39,7 +40,7 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: '#1e3a6e',
+        color: "#1e3a6e",
     },
 });
 

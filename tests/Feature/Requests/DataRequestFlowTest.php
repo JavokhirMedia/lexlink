@@ -119,7 +119,7 @@ class DataRequestFlowTest extends TestCase
 
         $this->sign($r)->assertSessionHasErrors('basis');
 
-        $this->assertStringContainsString('Ish haqi soliq siri', app(DataRequestService::class)->checkBasis($r)['reason']);
+        $this->assertStringContainsString('Soliq siri — faqat sud qarori', app(DataRequestService::class)->checkBasis($r)['reason']);
         $this->assertSame(DataRequestStatus::Draft, $r->fresh()->status);
         $this->assertTrue(AuditLog::where('action', AuditAction::RequestBlocked)->exists());
     }
@@ -328,7 +328,7 @@ class DataRequestFlowTest extends TestCase
         $b = $this->basis();
 
         $this->actingAs($this->lawyer)->get(route('requests.create', ['case' => $this->case->id]))->assertOk()
-            ->assertInertia(fn ($page) => $page->component('requests/create')->has('types', 4)->has('subjects', 1)->where('can_sign', false));
+            ->assertInertia(fn ($page) => $page->component('requests/create')->has('types', 8)->has('matrix.domains', 5)->has('subjects', 1)->where('can_sign', false));
 
         $this->actingAs($this->lawyer)->postJson(route('requests.check-basis'), [
             'case_id' => $this->case->id, 'type' => 'vehicle', 'subject_basis_id' => $b->id,

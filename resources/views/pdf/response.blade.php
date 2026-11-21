@@ -102,6 +102,63 @@
             <tr><td colspan="7">Shaxs nomida avtotransport qayd etilmagan</td></tr>
         @endforelse
     </table>
+@elseif ($type === 'tax_info')
+    <h2>Soliq ma'lumotlari (Soliq kodeksi 29-modda, soliq siri hisoblanmaydigan qism)</h2>
+    <table class="kv">
+        <tr><td>STIR</td><td>{{ $data['tin'] ?? '—' }}</td></tr>
+        <tr><td>Soliq rejimi</td><td>{{ $data['tax_regime'] ?? '—' }}</td></tr>
+        <tr><td>QQS to'lovchi</td><td>{{ ! empty($data['vat_payer']) ? 'Ha' : "Yo'q" }}</td></tr>
+        <tr><td>YaTT holati</td><td>{{ $data['individual_entrepreneur']['status'] ?? '—' }}{{ ! empty($data['individual_entrepreneur']['activity']) ? ' — '.$data['individual_entrepreneur']['activity'] : '' }}</td></tr>
+        <tr><td>Soliq qarzi, so'm</td><td>{{ $fmt($data['tax_debt'] ?? 0) }}</td></tr>
+        <tr><td>O'tgan yili to'langan soliqlar, so'm</td><td>{{ $fmt($data['taxes_paid_last_year'] ?? 0) }}</td></tr>
+    </table>
+    @if (! empty($data['participations']))
+        <h2>Yuridik shaxslardagi ishtirok</h2>
+        <table><tr><th>Nomi</th><th>STIR</th><th class="num">Ulush, %</th><th>Holati</th></tr>
+            @foreach ($data['participations'] as $p)<tr><td>{{ $p['name'] ?? '' }}</td><td>{{ $p['tin'] ?? '' }}</td><td class="num">{{ $p['share_percent'] ?? '' }}</td><td>{{ $p['status'] ?? '' }}</td></tr>@endforeach
+        </table>
+    @endif
+@elseif ($type === 'business_shares')
+    <h2>Yuridik shaxslardagi ulushlar</h2>
+    <table>
+        <tr><th>Yuridik shaxs</th><th>STIR</th><th class="num">Ulush, %</th><th class="num">Ustav fondi, so'm</th><th class="num">Ulush qiymati, so'm</th><th>Ta'sischi bo'lgan sana</th><th>Holati</th></tr>
+        @forelse ($data['companies'] ?? [] as $c)
+            <tr><td>{{ $c['name'] ?? '' }}</td><td>{{ $c['tin'] ?? '' }}</td><td class="num">{{ $c['share_percent'] ?? '' }}</td><td class="num">{{ $fmt($c['charter_capital'] ?? 0) }}</td><td class="num">{{ $fmt($c['share_value'] ?? 0) }}</td><td>{{ $c['since'] ?? '' }}</td><td>{{ $c['status'] ?? '' }}</td></tr>
+        @empty
+            <tr><td colspan="7">Shaxs yuridik shaxslarda ishtirokchi sifatida qayd etilmagan</td></tr>
+        @endforelse
+        @if (! empty($data['companies']))
+            <tr class="total"><td colspan="4">Ulushlarning nominal qiymati jami</td><td class="num">{{ $fmt($summary['total_share_value'] ?? 0) }}</td><td colspan="2"></td></tr>
+        @endif
+    </table>
+@elseif ($type === 'bank_accounts')
+    <h2>Bank hisobvaraqlari (bank siri)</h2>
+    <table>
+        <tr><th>Bank</th><th>Hisobvaraq</th><th>Valyuta</th><th class="num">Qoldiq</th><th class="num">Kirim ({{ $summary['turnover_months'] ?? 6 }} oy)</th><th class="num">Chiqim ({{ $summary['turnover_months'] ?? 6 }} oy)</th><th>Ochilgan</th><th>Cheklovlar</th></tr>
+        @forelse ($data['accounts'] ?? [] as $a)
+            <tr><td>{{ $a['bank'] ?? '' }}</td><td>{{ $a['account'] ?? '' }}</td><td>{{ $a['currency'] ?? '' }}</td><td class="num">{{ $fmt($a['balance'] ?? 0) }}</td><td class="num">{{ $fmt($a['turnover_in'] ?? 0) }}</td><td class="num">{{ $fmt($a['turnover_out'] ?? 0) }}</td><td>{{ $a['opened_at'] ?? '' }}</td>
+                <td>@forelse ($a['restrictions'] ?? [] as $x){{ $x['type'] ?? '' }} ({{ $x['by'] ?? '' }}, {{ $x['since'] ?? '' }})<br>@empty Yo'q @endforelse</td></tr>
+        @empty
+            <tr><td colspan="8">Shaxs nomida bank hisobvarag'i topilmadi</td></tr>
+        @endforelse
+        @foreach ($summary['totals_by_currency'] ?? [] as $cur => $t)
+            <tr class="total"><td colspan="3">Jami {{ $cur }} ({{ $t['accounts'] ?? 0 }} hisobvaraq)</td><td class="num">{{ $fmt($t['balance'] ?? 0) }}</td><td class="num">{{ $fmt($t['turnover_in'] ?? 0) }}</td><td class="num">{{ $fmt($t['turnover_out'] ?? 0) }}</td><td colspan="2"></td></tr>
+        @endforeach
+    </table>
+@elseif ($type === 'border_crossing')
+    <h2>Chegaradan o'tish ma'lumotlari</h2>
+    <table class="kv">
+        <tr><td>Hozir chet eldami</td><td>{{ ! empty($summary['currently_abroad']) ? 'Ha — '.($summary['last_exit_date'] ?? '').' dan beri ('.($summary['last_exit_country'] ?? '').'), '.($summary['days_abroad_current'] ?? 0).' kun' : "Yo'q" }}</td></tr>
+        <tr><td>So'nggi 12 oyda chet elda</td><td>{{ $summary['days_abroad_last_12m'] ?? 0 }} kun</td></tr>
+    </table>
+    <table>
+        <tr><th>Yo'nalish</th><th>Sana va vaqt</th><th>Davlat</th><th>O'tish punkti</th></tr>
+        @forelse ($data['crossings'] ?? [] as $c)
+            <tr><td>{{ ($c['direction'] ?? '') === 'exit' ? 'Chiqish' : 'Kirish' }}</td><td>{{ $c['date'] ?? '' }}</td><td>{{ $c['country'] ?? '' }}</td><td>{{ $c['checkpoint'] ?? '' }}</td></tr>
+        @empty
+            <tr><td colspan="4">Ko'rsatilgan davrda chegaradan o'tish qayd etilmagan</td></tr>
+        @endforelse
+    </table>
 @else
     <h2>Sud ishi</h2>
     <table class="kv">

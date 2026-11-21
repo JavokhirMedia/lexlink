@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from "@inertiajs/react";
 import {
     ArrowRight,
     Banknote,
@@ -10,43 +10,49 @@ import {
     FileLock2,
     FileText,
     Gavel,
+    Landmark,
     Lightbulb,
     MailX,
     PenLine,
+    Plane,
     ScanSearch,
+    ScrollText,
     ShieldCheck,
     Timer,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { DemoBadge } from '@/components/brand/demo-badge';
-import { LegalBasisChip } from '@/components/brand/legal-basis-chip';
-import { Logo, LogoMark } from '@/components/brand/logo';
-import { MaskedPinfl } from '@/components/brand/masked-pinfl';
-import { Money } from '@/components/brand/money';
-import { StatusBadge } from '@/components/brand/status-badge';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { DemoBadge } from "@/components/brand/demo-badge";
+import { LegalBasisChip } from "@/components/brand/legal-basis-chip";
+import { Logo, LogoMark } from "@/components/brand/logo";
+import { MaskedPinfl } from "@/components/brand/masked-pinfl";
+import { Money } from "@/components/brand/money";
+import { StatusBadge } from "@/components/brand/status-badge";
+import { AccessBadge } from "@/components/legal/access-badge";
+import { cn } from "@/lib/utils";
+import { legalMap } from "@/routes";
+import type { LegalMatrix } from "@/types/legal-map";
 
 const DATA_TYPES: { icon: LucideIcon; label: string }[] = [
-    { icon: Gavel, label: 'Sud ishlari' },
-    { icon: Banknote, label: 'Daromad va ish haqi' },
+    { icon: Gavel, label: "Sud ishlari" },
+    { icon: Banknote, label: "Daromad va ish haqi" },
     { icon: Building2, label: "Ko'chmas mulk (kadastr)" },
-    { icon: Car, label: 'Transport vositalari' },
+    { icon: Car, label: "Transport vositalari" },
 ];
 
 const PROBLEMS: { icon: LucideIcon; title: string; text: string }[] = [
     {
         icon: MailX,
         title: "Qog'oz so'rovnomalar",
-        text: 'Advokat har bir idoraga alohida xat yozadi, muhrlaydi va kuryer yoki pochta orqali yuboradi.',
+        text: "Advokat har bir idoraga alohida xat yozadi, muhrlaydi va kuryer yoki pochta orqali yuboradi.",
     },
     {
         icon: Timer,
-        title: 'Haftalab kutish',
+        title: "Haftalab kutish",
         text: "Javob kelish muddati noma'lum. Sud majlisi yaqinlashadi, dalillar esa hali yo'lda.",
     },
     {
         icon: Eye,
-        title: 'Nazoratsiz kirish',
+        title: "Nazoratsiz kirish",
         text: "Kim, qaysi asos bilan, kimning ma'lumotini so'ragani hech qayerda yagona tartibda qayd etilmaydi.",
     },
 ];
@@ -59,17 +65,17 @@ const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
     },
     {
         icon: ScanSearch,
-        title: 'Huquqiy asos tekshiruvi',
-        text: 'Sud qarori yoki advokat orderi reyestr bilan solishtiriladi: subyekt, muddat va ruxsat etilgan turlar.',
+        title: "Huquqiy asos tekshiruvi",
+        text: "Sud qarori yoki advokat orderi reyestr bilan solishtiriladi: subyekt, muddat va ruxsat etilgan turlar.",
     },
     {
         icon: PenLine,
-        title: 'Imzo va yuborish',
+        title: "Imzo va yuborish",
         text: "Faol litsenziyali advokat elektron imzo bilan tasdiqlaydi. So'rov idoraga darhol yetkaziladi.",
     },
     {
         icon: ShieldCheck,
-        title: 'Javob va audit',
+        title: "Javob va audit",
         text: "Javob bitta oynada, shifrlangan holda. Har bir ko'rish va yuklab olish jurnalga yoziladi.",
     },
 ];
@@ -82,12 +88,12 @@ const GUARANTEES: { icon: LucideIcon; title: string; text: string }[] = [
     },
     {
         icon: FileLock2,
-        title: 'Shifrlash',
+        title: "Shifrlash",
         text: "JShShIR va javob mazmuni bazada shifrlangan. Ro'yxatlarda faqat maskalangan identifikator ko'rinadi.",
     },
     {
         icon: Clock3,
-        title: '30 kunlik saqlash',
+        title: "30 kunlik saqlash",
         text: "To'liq javob 30 kundan so'ng avtomatik o'chiriladi. Qisqa xulosa va audit yozuvlari qoladi.",
     },
     {
@@ -97,8 +103,8 @@ const GUARANTEES: { icon: LucideIcon; title: string; text: string }[] = [
     },
     {
         icon: Lightbulb,
-        title: 'AI — maslahat emas',
-        text: 'Yordamchi tahlil F.I.Sh. va JShShIRni yashirib ishlaydi, har bir natija belgilanadi. Yakuniy qaror advokat zimmasida.',
+        title: "AI — maslahat emas",
+        text: "Yordamchi tahlil F.I.Sh. va JShShIRni yashirib ishlaydi, har bir natija belgilanadi. Yakuniy qaror advokat zimmasida.",
     },
 ];
 
@@ -110,34 +116,34 @@ const PLANS: {
     featured?: boolean;
 }[] = [
     {
-        name: 'Start',
-        audience: 'Tanishish uchun',
+        name: "Start",
+        audience: "Tanishish uchun",
         price: 0,
         features: [
             "Ishlar va so'rov loyihalari",
             "Har bir so'rov uchun alohida to'lov",
-            'Audit jurnali',
+            "Audit jurnali",
         ],
     },
     {
-        name: 'Advokat',
-        audience: 'Yakka amaliyot',
+        name: "Advokat",
+        audience: "Yakka amaliyot",
         price: 149000,
         featured: true,
         features: [
             "Oylik so'rovlar paketi",
-            'Huquqiy yordamchi (AI)',
+            "Huquqiy yordamchi (AI)",
             "Javoblarni PDF ko'rinishida yuklash",
         ],
     },
     {
-        name: 'Firma',
-        audience: 'Advokatlik byurosi',
+        name: "Firma",
+        audience: "Advokatlik byurosi",
         price: 590000,
         features: [
-            'Advokat va yuristlar jamoasi',
+            "Advokat va yuristlar jamoasi",
             "Ish bo'yicha kirish ruxsatlari",
-            'Umumiy audit va hisobotlar',
+            "Umumiy audit va hisobotlar",
         ],
     },
 ];
@@ -150,7 +156,7 @@ function Container({
     children: React.ReactNode;
 }) {
     return (
-        <div className={cn('mx-auto w-full max-w-6xl px-5 sm:px-8', className)}>
+        <div className={cn("mx-auto w-full max-w-6xl px-5 sm:px-8", className)}>
             {children}
         </div>
     );
@@ -171,16 +177,16 @@ function SectionTitle({
         <div className="max-w-2xl">
             <div
                 className={cn(
-                    'text-sm font-medium',
-                    inverted ? 'text-sidebar-primary' : 'text-gold',
+                    "text-sm font-medium",
+                    inverted ? "text-sidebar-primary" : "text-gold",
                 )}
             >
                 {kicker}
             </div>
             <h2
                 className={cn(
-                    'mt-2 font-display text-[30px] leading-tight font-semibold sm:text-[34px]',
-                    inverted ? 'text-white' : 'text-foreground',
+                    "mt-2 font-display text-[30px] leading-tight font-semibold sm:text-[34px]",
+                    inverted ? "text-white" : "text-foreground",
                 )}
             >
                 {title}
@@ -188,8 +194,8 @@ function SectionTitle({
             {text && (
                 <p
                     className={cn(
-                        'mt-3 text-[15px] leading-relaxed',
-                        inverted ? 'text-white/70' : 'text-muted-foreground',
+                        "mt-3 text-[15px] leading-relaxed",
+                        inverted ? "text-white/70" : "text-muted-foreground",
                     )}
                 >
                     {text}
@@ -199,13 +205,89 @@ function SectionTitle({
     );
 }
 
+const DOMAIN_ICONS: Record<string, LucideIcon> = {
+    court: Gavel,
+    tax: Landmark,
+    property: Building2,
+    bank: Banknote,
+    border: Plane,
+};
+
+/** "Advokat nimalar ola oladi" — 5 domain tiles from App\Support\LegalMatrix. */
+function LegalMapTeaser({ matrix }: { matrix: LegalMatrix }) {
+    return (
+        <section
+            id="huquqiy-xarita"
+            className="scroll-mt-16 border-b bg-muted/50"
+        >
+            <Container className="py-16 sm:py-20">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <SectionTitle
+                        kicker="Huquqiy xarita"
+                        title="Advokat nimalar ola oladi"
+                        text="Advokat so'rovi va orderi bilan olinadigan ma'lumotlar hamda faqat sud qarori bilan beriladigan sir rejimidagi ma'lumotlar — sohalar bo'yicha."
+                    />
+                    <Link
+                        href={legalMap()}
+                        className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                    >
+                        To'liq huquqiy xarita
+                        <ArrowRight className="size-4" />
+                    </Link>
+                </div>
+                <div className="mt-10 grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 lg:grid-cols-5">
+                    {matrix.domains.map((d) => {
+                        const Icon = DOMAIN_ICONS[d.key] ?? ScrollText;
+
+                        return (
+                            <Link
+                                key={d.key}
+                                href={`${legalMap().url}#soha-${d.key}`}
+                                className="group flex flex-col bg-card p-5 transition-colors hover:bg-accent/40"
+                            >
+                                <Icon className="size-5 text-primary" />
+                                <h3 className="mt-4 text-base font-semibold group-hover:text-primary">
+                                    {d.title}
+                                </h3>
+                                <ul className="mt-3 space-y-2.5">
+                                    {d.types.map((t) => (
+                                        <li key={t.value} className="space-y-1">
+                                            <div className="text-sm leading-snug text-foreground/85">
+                                                {t.label}
+                                            </div>
+                                            <AccessBadge
+                                                access={t.access}
+                                                size="sm"
+                                            />
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Link>
+                        );
+                    })}
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-2">
+                        <AccessBadge access="order" size="sm" />
+                        Advokatura to'g'risidagi Qonun, 7¹-modda
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                        <AccessBadge access="court" size="sm" />
+                        soliq siri, bank siri, maxsus ma'lumot
+                    </span>
+                </div>
+            </Container>
+        </section>
+    );
+}
+
 /** Product preview: a request card as it appears inside LexLink (fictional data). */
 function RequestPreview() {
     const timeline = [
-        { label: 'Loyiha tuzildi', time: '09:12', done: true },
-        { label: 'Asos tasdiqlandi', time: '09:12', done: true },
-        { label: 'Imzolandi va yuborildi', time: '09:14', done: true },
-        { label: 'Javob olindi', time: '09:21', done: true },
+        { label: "Loyiha tuzildi", time: "09:12", done: true },
+        { label: "Asos tasdiqlandi", time: "09:12", done: true },
+        { label: "Imzolandi va yuborildi", time: "09:14", done: true },
+        { label: "Javob olindi", time: "09:21", done: true },
     ];
 
     return (
@@ -293,11 +375,11 @@ function RequestPreview() {
     );
 }
 
-export default function Welcome() {
+export default function Welcome({ matrix }: { matrix?: LegalMatrix }) {
     const { auth } = usePage().props;
     const loggedIn = Boolean(auth?.user);
-    const ctaHref = loggedIn ? '/dashboard' : '/login';
-    const ctaLabel = loggedIn ? "Kabinetga o'tish" : 'OneID orqali kirish';
+    const ctaHref = loggedIn ? "/dashboard" : "/login";
+    const ctaLabel = loggedIn ? "Kabinetga o'tish" : "OneID orqali kirish";
 
     return (
         <>
@@ -318,6 +400,12 @@ export default function Welcome() {
                                 className="hover:text-foreground"
                             >
                                 Qanday ishlaydi
+                            </a>
+                            <a
+                                href="#huquqiy-xarita"
+                                className="hover:text-foreground"
+                            >
+                                Huquqiy xarita
                             </a>
                             <a
                                 href="#kafolatlar"
@@ -354,7 +442,7 @@ export default function Welcome() {
                                     Advokatlar va yuristlar uchun
                                 </div>
                                 <h1 className="mt-5 font-display text-[40px] leading-[1.08] font-semibold tracking-tight text-foreground sm:text-[52px]">
-                                    Davlat ma'lumotlariga huquqiy asos bilan —{' '}
+                                    Davlat ma'lumotlariga huquqiy asos bilan —{" "}
                                     <span className="text-primary">
                                         bitta oynada
                                     </span>
@@ -465,6 +553,9 @@ export default function Welcome() {
                         </Container>
                     </section>
 
+                    {/* What an advocate can obtain (LegalMatrix) */}
+                    {matrix && <LegalMapTeaser matrix={matrix} />}
+
                     {/* Guarantees */}
                     <section
                         id="kafolatlar"
@@ -528,9 +619,9 @@ export default function Welcome() {
                                     <div
                                         key={plan.name}
                                         className={cn(
-                                            'flex flex-col rounded-lg border bg-card p-6',
+                                            "flex flex-col rounded-lg border bg-card p-6",
                                             plan.featured &&
-                                                'border-primary ring-1 ring-primary',
+                                                "border-primary ring-1 ring-primary",
                                         )}
                                     >
                                         <div className="flex items-center justify-between">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Cases;
 
+use App\Enums\DataRequestStatus;
 use App\Enums\DataRequestType;
 use App\Enums\LegalBasisType;
 use App\Models\CaseMember;
@@ -9,6 +10,7 @@ use App\Models\DataRequest;
 use App\Models\LegalBasis;
 use App\Models\LegalCase;
 use App\Services\LegalBasisVerifier;
+use App\Support\RequestDeadline;
 
 /** Serializers matching resources/js/types/lexlink.ts (snake_case). */
 final class CasePresenter
@@ -42,7 +44,7 @@ final class CasePresenter
     {
         $allowed = $b->allowed_types ?? [];
         $possible = $b->type === LegalBasisType::AdvocateOrder
-            ? LegalBasisVerifier::ADVOCATE_ORDER_TYPES
+            ? LegalBasisVerifier::advocateOrderTypes()
             : array_map(fn (DataRequestType $t) => $t->value, DataRequestType::cases());
 
         return [
@@ -67,6 +69,16 @@ final class CasePresenter
             'possible_types' => $possible,
             'is_expired' => $b->isExpired(),
             'verification_error' => $b->verification_payload['error'] ?? null,
+            'purpose' => $b->purpose,
+            'order' => $b->type === LegalBasisType::AdvocateOrder && isset($b->verification_payload['order']) ? [
+                'client_name' => $b->verification_payload['order']['client']['full_name'] ?? null,
+                'client_pinfl_masked' => $b->verification_payload['order']['client']['pinfl_masked'] ?? null,
+                'matter' => $b->verification_payload['order']['matter'] ?? null,
+                'license_number' => $b->verification_payload['order']['license_number'] ?? null,
+                'advocate_name' => $b->verification_payload['order']['advocate_name'] ?? null,
+                'status' => $b->verification_payload['order']['status'] ?? null,
+                'client_known' => ! empty($b->verification_payload['client_pinfl_hash']),
+            ] : null,
             'has_file' => $b->file_path !== null,
             'created_by' => $b->creator ? ['id' => $b->creator->id, 'name' => $b->creator->name] : null,
         ];
@@ -92,6 +104,10 @@ final class CasePresenter
             'rejection_reason' => $r->rejection_reason,
             'signed_at' => $r->signed_at?->toIso8601String(),
             'submitted_at' => $r->submitted_at?->toIso8601String(),
+            'due_at' => $r->due_at?->toIso8601String(),
+            'deadline_basis' => $r->deadline_basis,
+            'deadline_label' => RequestDeadline::label($r->deadline_basis),
+            'answered_on_time' => $r->due_at && $r->completed_at && $r->status === DataRequestStatus::Completed ? $r->completed_at->lte($r->due_at) : null,
             'completed_at' => $r->completed_at?->toIso8601String(),
             'created_at' => $r->created_at?->toIso8601String(),
         ];

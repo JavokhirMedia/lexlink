@@ -9,6 +9,7 @@ use App\Models\DataRequest;
 use App\Models\LegalCase;
 use App\Models\User;
 use App\Services\BillingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -20,9 +21,12 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, BillingService $billing): Response
+    public function __invoke(Request $request, BillingService $billing): Response|RedirectResponse
     {
         $user = $request->user();
+        if ($user->isClient()) {
+            return to_route('client.index'); // clients (ishonch bildiruvchi) have their own read-only portal
+        }
         $caseIds = $this->caseIdsFor($user);
         $usage = $billing->usage($user);
 
@@ -108,6 +112,7 @@ class DashboardController extends Controller
             'subject_pinfl_masked' => $r->subject_pinfl_masked,
             'created_by_name' => $r->relationLoaded('creator') ? $r->creator?->name : null,
             'cost' => (int) $r->cost,
+            'due_at' => $r->due_at?->toIso8601String(),
             'updated_at' => $r->updated_at?->toIso8601String(),
         ])->values();
     }

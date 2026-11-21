@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from "@inertiajs/react";
 import { useEcho } from "@laravel/echo-react";
 import { ArrowRight, PenLine } from "lucide-react";
 import type { ReactNode } from "react";
+import { DeadlineChip } from "@/components/orders/deadline-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ type RequestRow = {
     subject_pinfl_masked: string | null;
     created_by_name: string | null;
     cost: number;
+    due_at?: string | null;
     updated_at: string;
 };
 
@@ -433,6 +435,14 @@ function RequestLine({ r }: { r: RequestRow }) {
                     <p className="truncate text-xs text-muted-foreground">
                         {r.agency} · {ago(r.updated_at)}
                     </p>
+                    {r.due_at && (
+                        <DeadlineChip
+                            dueAt={r.due_at}
+                            status={r.status}
+                            compact
+                            className="mt-1"
+                        />
+                    )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <StatusBadge status={r.status} label={r.status_label} />

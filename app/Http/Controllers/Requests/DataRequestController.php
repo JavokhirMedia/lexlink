@@ -18,6 +18,7 @@ use App\Services\Ai\AiAnalysisPresenter;
 use App\Services\Ai\AiService;
 use App\Services\DataRequestService;
 use App\Services\Requests\RequestTextTemplate;
+use App\Support\LegalMatrix;
 use App\Support\Pinfl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -84,6 +85,7 @@ class DataRequestController extends Controller
             'bases' => $case->legalBases()->latest('id')->get()->map(fn ($b) => CasePresenter::basis($b))->values(),
             'subjects' => $this->subjects($case),
             'types' => $this->types(),
+            'matrix' => LegalMatrix::toArray(),
             'defaults' => [
                 'type' => $request->query('type') && DataRequestType::tryFrom($request->query('type')) ? $request->query('type') : 'salary',
                 'period_from' => now()->subMonths(6)->format('Y-m'),
@@ -351,6 +353,8 @@ class DataRequestController extends Controller
             'agency' => $t->agency(),
             'secrecy_regime' => $t->secrecyRegime(),
             'accepted_bases' => array_map(fn (LegalBasisType $b) => ['value' => $b->value, 'label' => $b->label()], $t->acceptedBases()),
+            'access' => $t->access(),
+            'domain' => $t->domain(),
         ])->values()->all();
     }
 

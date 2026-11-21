@@ -101,10 +101,12 @@ class LegalBasisVerificationTest extends TestCase
     {
         $adv = $this->advocate();
         $case = $this->caseFor($adv);
+        $this->order('ORD-8', $adv);
 
         $this->actingAs($adv)->post(route('cases.bases.store', $case), [
             'type' => 'advocate_order',
             'number' => 'ORD-7',
+            'purpose' => 'Aliment ishi bo\'yicha mol-mulkni aniqlash',
             'subject_pinfl' => '31234567890112',
             'allowed_types' => ['salary', 'property'],
             'expires_at' => now()->addMonth()->toDateString(),
@@ -128,10 +130,12 @@ class LegalBasisVerificationTest extends TestCase
     {
         $adv = $this->advocate();
         $case = $this->caseFor($adv);
+        $this->order('ORD-9', $adv);
 
         $this->actingAs($adv)->post(route('cases.bases.store', $case), [
             'type' => 'advocate_order',
             'number' => 'ORD-9',
+            'purpose' => 'Aliment ishi bo\'yicha mol-mulkni aniqlash',
             'subject_pinfl' => '31234567890112',
             'subject_name' => 'Karimov Aziz',
             'allowed_types' => ['property', 'vehicle'],

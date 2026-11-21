@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from "@inertiajs/react";
 import {
     ArrowLeft,
     Check,
@@ -7,33 +7,34 @@ import {
     Pencil,
     Printer,
     RefreshCw,
-} from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
-import { AiDisclaimer } from '@/components/ai/ai-disclaimer';
-import { AlimonyTable } from '@/components/ai/alimony-table';
-import { CitationChips } from '@/components/ai/citation-chips';
-import { formatSum, modelLabel } from '@/components/ai/format';
-import { AiMarkdown } from '@/components/ai/markdown';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { AiDisclaimer } from "@/components/ai/ai-disclaimer";
+import { AiSentPayload } from "@/components/ai/ai-sent-payload";
+import { AlimonyTable } from "@/components/ai/alimony-table";
+import { CitationChips } from "@/components/ai/citation-chips";
+import { formatSum, modelLabel } from "@/components/ai/format";
+import { AiMarkdown } from "@/components/ai/markdown";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useClipboard } from '@/hooks/use-clipboard';
-import { store } from '@/routes/ai/claim';
-import { index as casesIndex, show as casesShow } from '@/routes/cases';
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useClipboard } from "@/hooks/use-clipboard";
+import { store } from "@/routes/ai/claim";
+import { index as casesIndex, show as casesShow } from "@/routes/cases";
 import type {
     AiAnalysis,
     AlimonyCalculation,
     DataRequestType,
-} from '@/types/lexlink';
+} from "@/types/lexlink";
 
 type Props = {
     case: {
@@ -67,16 +68,16 @@ export default function ClaimPage({
     price,
 }: Props) {
     const form = useForm<{ children: string; court: string }>({
-        children: children_detected ? String(children_detected) : '',
-        court: '',
+        children: children_detected ? String(children_detected) : "",
+        court: "",
     });
-    const [text, setText] = useState(draft?.output ?? '');
+    const [text, setText] = useState(draft?.output ?? "");
     const [editing, setEditing] = useState(false);
     const [copied, copy] = useClipboard();
     const printRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        setText(draft?.output ?? '');
+        setText(draft?.output ?? "");
         setEditing(false);
     }, [draft?.id, draft?.output]);
 
@@ -91,19 +92,19 @@ export default function ClaimPage({
 
     const print = () => {
         const html = editing
-            ? `<pre style="white-space:pre-wrap;font:inherit">${text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] as string)}</pre>`
-            : (printRef.current?.innerHTML ?? '');
-        const w = window.open('', '_blank', 'width=900,height=1000');
+            ? `<pre style="white-space:pre-wrap;font:inherit">${text.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] as string)}</pre>`
+            : (printRef.current?.innerHTML ?? "");
+        const w = window.open("", "_blank", "width=900,height=1000");
         if (!w) {
             return;
         }
         w.document.write(
             `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>Da'vo arizasi — ${legalCase.title}</title>` +
                 '<style>body{font-family:"Times New Roman",serif;font-size:14px;line-height:1.55;max-width:720px;margin:40px auto;color:#000}' +
-                'h2,h3,h4{text-align:center;margin:18px 0 8px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px 8px}' +
-                'a{color:inherit;text-decoration:none}@page{margin:20mm}</style></head><body>' +
+                "h2,h3,h4{text-align:center;margin:18px 0 8px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:4px 8px}" +
+                "a{color:inherit;text-decoration:none}@page{margin:20mm}</style></head><body>" +
                 html +
-                '</body></html>',
+                "</body></html>",
         );
         w.document.close();
         w.focus();
@@ -120,14 +121,14 @@ export default function ClaimPage({
                             href={casesShow.url(legalCase.id)}
                             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                         >
-                            <ArrowLeft className="size-4" aria-hidden />{' '}
+                            <ArrowLeft className="size-4" aria-hidden />{" "}
                             {legalCase.title}
                         </Link>
                         <h1 className="text-2xl font-semibold tracking-tight">
                             Da'vo arizasi loyihasi
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Aliment undirish to'g'risida · mijoz:{' '}
+                            Aliment undirish to'g'risida · mijoz:{" "}
                             {legalCase.client_name}
                             {legalCase.court_case_number &&
                                 ` · ish № ${legalCase.court_case_number}`}
@@ -143,8 +144,8 @@ export default function ClaimPage({
                                     Parametrlar
                                 </CardTitle>
                                 <CardDescription>
-                                    Shaxsiy ma'lumotlar AI ga maxfiylashtirilgan
-                                    holda yuboriladi; summalar PHP da
+                                    AI'ga faqat egasizlantirilgan ma'lumot
+                                    yuboriladi (ShMQ 16-modda); summalar PHP da
                                     hisoblanadi.
                                 </CardDescription>
                             </CardHeader>
@@ -162,7 +163,7 @@ export default function ClaimPage({
                                             value={form.data.children}
                                             onChange={(e) =>
                                                 form.setData(
-                                                    'children',
+                                                    "children",
                                                     e.target.value,
                                                 )
                                             }
@@ -170,7 +171,7 @@ export default function ClaimPage({
                                         />
                                         {children_detected && (
                                             <p className="text-xs text-muted-foreground">
-                                                Ish tavsifidan aniqlandi:{' '}
+                                                Ish tavsifidan aniqlandi:{" "}
                                                 {children_detected}
                                             </p>
                                         )}
@@ -187,7 +188,7 @@ export default function ClaimPage({
                                             value={form.data.court}
                                             onChange={(e) =>
                                                 form.setData(
-                                                    'court',
+                                                    "court",
                                                     e.target.value,
                                                 )
                                             }
@@ -211,11 +212,11 @@ export default function ClaimPage({
                                             />
                                         )}
                                         {draft
-                                            ? 'Qayta yaratish'
-                                            : 'Loyihani yaratish'}
+                                            ? "Qayta yaratish"
+                                            : "Loyihani yaratish"}
                                     </Button>
                                     <p className="text-xs text-muted-foreground">
-                                        Tarif doirasida bepul, limitdan keyin{' '}
+                                        Tarif doirasida bepul, limitdan keyin{" "}
                                         {formatSum(price)}.
                                     </p>
                                 </form>
@@ -288,7 +289,7 @@ export default function ClaimPage({
                                         <p className="text-xs text-muted-foreground">
                                             {new Date(
                                                 draft.created_at,
-                                            ).toLocaleString('uz-UZ')}
+                                            ).toLocaleString("uz-UZ")}
                                             {draft.model &&
                                                 ` · ${modelLabel(draft.model)}`}
                                         </p>
@@ -309,7 +310,7 @@ export default function ClaimPage({
                                             />
                                             {editing
                                                 ? "Ko'rinish"
-                                                : 'Tahrirlash'}
+                                                : "Tahrirlash"}
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -383,6 +384,12 @@ export default function ClaimPage({
                                     />
                                 )}
                                 {draft && (
+                                    <AiSentPayload
+                                        report={draft.anonymization}
+                                        sentPayload={draft.sent_payload}
+                                    />
+                                )}
+                                {draft && (
                                     <AiDisclaimer text={draft.disclaimer} />
                                 )}
                             </CardContent>
@@ -396,7 +403,7 @@ export default function ClaimPage({
 
 ClaimPage.layout = {
     breadcrumbs: [
-        { title: 'Ishlar', href: casesIndex() },
-        { title: "Da'vo arizasi", href: '#' },
+        { title: "Ishlar", href: casesIndex() },
+        { title: "Da'vo arizasi", href: "#" },
     ],
 };

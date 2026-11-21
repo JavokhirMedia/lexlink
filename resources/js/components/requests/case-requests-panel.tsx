@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { create as createRoute, show as showRoute } from "@/routes/requests";
 import type { DataRequest, RequestStatusUpdatedEvent } from "@/types/lexlink";
 import { formatDateTime } from "./types";
+import { RequestTypeIcon } from "./request-type-icon";
 
 /**
  * Compact request list for cases/show with live status updates.
@@ -80,6 +81,10 @@ export function CaseRequestsPanel({
                                 >
                                     <div className="min-w-0 flex-1">
                                         <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
+                                            <RequestTypeIcon
+                                                type={r.type}
+                                                className="size-4 text-muted-foreground"
+                                            />
                                             {r.type_label}
                                             <span className="text-xs font-normal text-muted-foreground">
                                                 · {r.agency}

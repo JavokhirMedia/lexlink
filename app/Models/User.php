@@ -64,6 +64,11 @@ class User extends Authenticatable implements PasskeyUser
         return $this->role === UserRole::Lawyer;
     }
 
+    public function isClient(): bool
+    {
+        return $this->role === UserRole::Client;
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;

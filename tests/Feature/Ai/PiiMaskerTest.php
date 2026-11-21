@@ -76,7 +76,7 @@ class PiiMaskerTest extends TestCase
         $this->assertStringNotContainsString('Chilonzor', $json);
         $this->assertStringNotContainsString('10:09:03', $json);
         $this->assertStringNotContainsString('31507901234567', $json);
-        $this->assertStringContainsString('Toshkent Tekstil', $json);
+        $this->assertStringContainsString('Toshkent Tekstil', $json); // local-only output; the AI gets ResponseProjector's [ISH_BERUVCHI_n]
         $this->assertSame(54.2, $out['objects'][0]['area']);
     }
 }

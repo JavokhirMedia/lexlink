@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             PlansSeeder::class,
             MockGovSeeder::class,
             DemoUsersSeeder::class,
+            AdvocateOrdersSeeder::class,
         ]);
     }
 }

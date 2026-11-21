@@ -9,6 +9,7 @@ use App\Models\LegalBasis;
 use App\Models\LegalCase;
 use App\Services\Gov\GovApiException;
 use App\Services\Gov\GovDataProvider;
+use App\Support\LegalMatrix;
 use App\Support\Pinfl;
 use Carbon\CarbonImmutable;
 use Throwable;
@@ -19,13 +20,6 @@ use Throwable;
  */
 class LegalBasisVerifier
 {
-    /** An advocate order is self-issued, so it can never open tax secrecy (salary). */
-    public const ADVOCATE_ORDER_TYPES = [
-        DataRequestType::Property->value,
-        DataRequestType::Vehicle->value,
-        DataRequestType::CourtCase->value,
-    ];
-
     public function __construct(
         private readonly GovDataProvider $gov,
         private readonly AuditLogger $audit,
@@ -123,46 +117,111 @@ class LegalBasisVerifier
         $b->verification_status = $b->isExpired() ? 'expired' : 'verified';
     }
 
+    /**
+     * Advocate order (advokat so'rovi + order, Advokatura to'g'risidagi Qonun 6, 7¹-moddalar):
+     * the order number is checked against the e-order registry — it must exist, be active and be
+     * issued by THIS advocate's licence. The order authorises representing the client; the person whose
+     * data is requested (subject) is entered by the advocate and tied to the order matter via `purpose`.
+     */
     private function verifyAdvocateOrder(LegalBasis $b): void
     {
         $issuer = $b->creator;
+        $licence = $issuer?->advocateProfile?->license_number;
 
-        // Licence status re-check against registry where possible; fall back to local profile.
+        $allowed = array_values(array_intersect((array) ($b->allowed_types ?? []), self::advocateOrderTypes()));
+        $b->allowed_types = $allowed;
+        $b->court_name = null;
+        $b->verified_at = now();
+
+        $fail = function (string $status, string $error, array $extra = []) use ($b): void {
+            $b->verification_status = $status;
+            $b->verification_payload = ['error' => $error, 'purpose' => $b->purpose] + $extra;
+        };
+
+        // 1. issuing advocate's licence must be active (registry re-check where possible)
         $active = $issuer?->hasActiveLicense() ?? false;
-        if ($active && ($number = $issuer->advocateProfile?->license_number)) {
+        if ($active && $licence) {
             try {
-                $licence = $this->gov->advocateLicense($number);
-                if ($licence !== null && ($licence['status'] ?? null) !== 'active') {
+                $record = $this->gov->advocateLicense($licence);
+                if ($record !== null && ($record['status'] ?? null) !== 'active') {
                     $active = false;
                 }
             } catch (Throwable) {
                 // registry unavailable — trust the locally verified profile
             }
         }
-
-        $allowed = array_values(array_intersect((array) ($b->allowed_types ?? []), self::ADVOCATE_ORDER_TYPES));
-
-        $b->allowed_types = $allowed;
-        $b->court_name = null;
-        $b->issued_at ??= now();
-        $b->verified_at = now();
-
         if (! $active) {
-            $b->verification_status = 'mismatch';
-            $b->verification_payload = ['error' => 'Orderni bergan advokatning litsenziyasi faol emas'];
+            $fail('mismatch', 'Orderni bergan advokatning litsenziyasi faol emas');
+
+            return;
+        }
+
+        // 2. e-order registry
+        try {
+            $order = $this->gov->advocateOrder($b->number);
+        } catch (GovApiException $e) {
+            $b->verification_status = 'pending';
+            $b->verification_payload = ['error' => "Elektron orderlar reyestri bilan aloqa yo'q: ".$e->getMessage(), 'purpose' => $b->purpose];
+
+            return;
+        }
+
+        if ($order === null) {
+            $fail('not_found', "Advokatlar palatasining elektron orderlar reyestrida {$b->number} raqamli order topilmadi");
+
+            return;
+        }
+
+        $orderData = $this->safeOrder($order);
+
+        if (($order['status'] ?? null) !== 'active') {
+            $fail('mismatch', "Order {$b->number} bekor qilingan — undan foydalanib bo'lmaydi", ['order' => $orderData]);
+
+            return;
+        }
+
+        $orderLicence = strtoupper((string) ($order['license_number'] ?? ''));
+        if ($licence === null || ! hash_equals($orderLicence, strtoupper($licence))) {
+            $fail('mismatch', "Order {$b->number} boshqa advokatga ({$orderLicence}) berilgan — faqat o'zingiz bergan orderdan foydalanishingiz mumkin", ['order' => $orderData]);
 
             return;
         }
 
         if ($allowed === []) {
-            $b->verification_status = 'mismatch';
-            $b->verification_payload = ['error' => "Order hech bir ruxsat etilgan ma'lumot turini qamramaydi"];
+            $fail('mismatch', "Order hech bir ruxsat etilgan ma'lumot turini qamramaydi", ['order' => $orderData]);
 
             return;
         }
 
-        $b->verification_payload = ['issuer_license' => $issuer->advocateProfile?->license_number];
+        $b->issued_at = $this->date($order['issued_at'] ?? null) ?? ($b->issued_at ?? now());
+        $b->verification_payload = [
+            'issuer_license' => $licence,
+            'purpose' => $b->purpose,
+            'order' => $orderData,
+            'client_name' => $order['client']['full_name'] ?? null,
+            'client_pinfl_masked' => $orderData['client']['pinfl_masked'] ?? null,
+            'client_pinfl_hash' => isset($order['client']['pinfl']) ? Pinfl::hash((string) $order['client']['pinfl']) : null,
+        ];
         $b->verification_status = $b->isExpired() ? 'expired' : 'verified';
+    }
+
+    /**
+     * Types an advocate order may cover — LegalMatrix access = 'order'. Never salary / bank / border:
+     * those secrecy regimes are opened only by a court decision.
+     */
+    public static function advocateOrderTypes(): array
+    {
+        return LegalMatrix::orderTypes();
+    }
+
+    /** Registry order without the raw client PINFL. */
+    private function safeOrder(array $o): array
+    {
+        $pinfl = $o['client']['pinfl'] ?? null;
+        unset($o['client']['pinfl'], $o['checked_at']);
+        $o['client']['pinfl_masked'] ??= $pinfl ? Pinfl::mask((string) $pinfl) : null;
+
+        return $o;
     }
 
     private function date(mixed $v): ?CarbonImmutable

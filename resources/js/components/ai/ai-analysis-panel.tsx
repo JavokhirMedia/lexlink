@@ -1,16 +1,17 @@
-import { router } from '@inertiajs/react';
-import { FileSearch, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { analyze } from '@/routes/ai/requests';
-import type { AiAnalysis, AlimonyCalculation } from '@/types/lexlink';
-import { AiDisclaimer } from './ai-disclaimer';
-import { AlimonyTable } from './alimony-table';
-import { CitationChips } from './citation-chips';
-import { modelLabel, restorePii } from './format';
-import { AiMarkdown } from './markdown';
+import { router } from "@inertiajs/react";
+import { FileSearch, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { analyze } from "@/routes/ai/requests";
+import type { AiAnalysis, AlimonyCalculation } from "@/types/lexlink";
+import { AiDisclaimer } from "./ai-disclaimer";
+import { AiSentPayload } from "./ai-sent-payload";
+import { AlimonyTable } from "./alimony-table";
+import { CitationChips } from "./citation-chips";
+import { modelLabel, restorePii } from "./format";
+import { AiMarkdown } from "./markdown";
 
 type Props = { requestId: number; analysis: AiAnalysis | null };
 
@@ -52,7 +53,7 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                     {analysis && (
                         <p className="text-xs text-muted-foreground">
                             {new Date(analysis.created_at).toLocaleString(
-                                'uz-UZ',
+                                "uz-UZ",
                             )}
                             {analysis.model &&
                                 ` · ${modelLabel(analysis.model)}`}
@@ -67,11 +68,11 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 >
                     <RefreshCw
                         className={
-                            processing ? 'size-4 animate-spin' : 'size-4'
+                            processing ? "size-4 animate-spin" : "size-4"
                         }
                         aria-hidden
                     />
-                    {analysis ? 'Qayta tahlil' : 'Tahlil qilish'}
+                    {analysis ? "Qayta tahlil" : "Tahlil qilish"}
                 </Button>
             </CardHeader>
 
@@ -79,12 +80,12 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 {!analysis && (
                     <p className="text-sm text-muted-foreground">
                         {processing
-                            ? 'Tahlil tayyorlanmoqda…'
-                            : "Javob hali tahlil qilinmagan. Tahlil shaxsiy ma'lumotlar maxfiylashtirilgan holda bajariladi."}
+                            ? "Tahlil tayyorlanmoqda…"
+                            : "Javob hali tahlil qilinmagan. AI'ga faqat egasizlantirilgan ma'lumot yuboriladi (ShMQ 16-modda)."}
                     </p>
                 )}
 
-                {analysis?.status === 'failed' && (
+                {analysis?.status === "failed" && (
                     <p className="text-sm text-destructive">
                         Tahlil bajarilmadi. Qayta urinib ko'ring.
                     </p>
@@ -93,13 +94,13 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 {alimony && <AlimonyTable calc={alimony} />}
 
                 {facts &&
-                    typeof facts.count === 'number' &&
-                    structured?.type !== 'court_case' && (
+                    typeof facts.count === "number" &&
+                    structured?.type !== "court_case" && (
                         <div className="flex flex-wrap gap-2">
                             <Badge variant="secondary">
                                 Topildi: {facts.count}
                             </Badge>
-                            {typeof facts.encumbered === 'number' && (
+                            {typeof facts.encumbered === "number" && (
                                 <Badge variant="outline">
                                     Garov / taqiq: {facts.encumbered}
                                 </Badge>
@@ -114,6 +115,13 @@ export function AiAnalysisPanel({ requestId, analysis }: Props) {
                 )}
 
                 <CitationChips citations={analysis?.citations} />
+
+                {analysis && (
+                    <AiSentPayload
+                        report={analysis.anonymization}
+                        sentPayload={analysis.sent_payload}
+                    />
+                )}
 
                 {analysis && <AiDisclaimer text={disclaimer} />}
             </CardContent>

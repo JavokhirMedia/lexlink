@@ -1,24 +1,23 @@
 import { Head, Link, useForm } from "@inertiajs/react";
 import {
-    Car,
+    ExternalLink,
     FileText,
-    Gavel,
-    Home,
     Landmark,
+    ListChecks,
     PenLine,
     Save,
     Send,
     Sparkles,
-    Wallet,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { formatMoney } from "@/components/brand/money";
 import { PageHeader } from "@/components/brand/page-header";
+import { AccessBadge } from "@/components/legal/access-badge";
 import InputError from "@/components/input-error";
 import { BasisCheckPanel } from "@/components/requests/basis-check-panel";
 import { jsonRequest } from "@/components/requests/http";
+import { REQUEST_TYPE_ICONS } from "@/components/requests/request-type-icon";
 import type {
     BasisCheck,
     Quote,
@@ -48,7 +47,13 @@ import {
     draftText as draftTextRoute,
     store,
 } from "@/routes/requests";
-import type { DataRequestType, LegalBasis, LegalCase } from "@/types/lexlink";
+import type {
+    DataRequestType,
+    LegalBasis,
+    LegalCase,
+    LegalMatrix,
+    LegalMatrixType,
+} from "@/types/lexlink";
 
 type Subject = {
     basis_id: number;
@@ -63,6 +68,7 @@ type Props = {
     bases: LegalBasis[];
     subjects: Subject[];
     types: RequestTypeOption[];
+    matrix: LegalMatrix;
     defaults: { type: DataRequestType; period_from: string; period_to: string };
     quote: Quote;
     can_sign: boolean;
@@ -86,24 +92,34 @@ type FormData = {
     intent: "draft" | "signature" | "submit";
 };
 
-const TYPE_ICONS: Record<DataRequestType, LucideIcon> = {
-    salary: Wallet,
-    property: Home,
-    vehicle: Car,
-    court_case: Gavel,
-};
-
 const PURPOSE_HINTS: Record<DataRequestType, string> = {
     salary: "Aliment miqdorini aniqlash uchun javobgarning so'nggi oylardagi daromadini tasdiqlash",
     property: "Da'vo ta'minoti sifatida javobgar mulkini aniqlash",
     vehicle: "Nikohda orttirilgan mol-mulkni (avtotransport) aniqlash",
     court_case: "Sud ishining joriy holati va majlis sanalarini aniqlash",
+    tax_info:
+        "Javobgarning soliq qarzi, YaTT faoliyati va yuridik shaxslardagi ishtirokini aniqlash",
+    business_shares:
+        "Undiruv qaratish mumkin bo'lgan mol-mulk sifatida yuridik shaxslardagi ulushlarni aniqlash",
+    bank_accounts:
+        "Aliment qarzini undirish uchun javobgarning bank hisobvaraqlaridagi mablag'larni aniqlash",
+    border_crossing:
+        "Aliment qarzdori chet elda ekanini va qachondan beri ekanini aniqlash",
 };
+
+/** Types with a period: salary requires it; for the others it is optional (months). */
+const PERIOD_TYPES: DataRequestType[] = [
+    "salary",
+    "bank_accounts",
+    "border_crossing",
+    "tax_info",
+];
 
 export default function RequestCreate({
     case: legalCase,
     subjects,
     types,
+    matrix,
     defaults,
     quote,
     can_sign,
@@ -136,6 +152,17 @@ export default function RequestCreate({
         null,
     );
     const purposeTouched = useRef(false);
+    const [periodOn, setPeriodOn] = useState(defaults.type === "salary");
+    const usesPeriod =
+        data.type === "salary" ||
+        (PERIOD_TYPES.includes(data.type) && periodOn);
+    const params = useMemo(
+        () =>
+            usesPeriod
+                ? data.params
+                : { ...data.params, period_from: "", period_to: "" },
+        [usesPeriod, data.params],
+    );
 
     const payload = useMemo(
         () => ({
@@ -144,7 +171,7 @@ export default function RequestCreate({
             subject_basis_id: data.subject_basis_id,
             subject_pinfl: manual ? data.subject_pinfl : null,
             subject_name: data.subject_name || null,
-            params: data.params,
+            params,
             purpose: data.purpose,
         }),
         [
@@ -153,7 +180,7 @@ export default function RequestCreate({
             data.subject_basis_id,
             data.subject_pinfl,
             data.subject_name,
-            data.params,
+            params,
             data.purpose,
             manual,
         ],
@@ -199,6 +226,7 @@ export default function RequestCreate({
         data.subject_pinfl,
         data.params.period_from,
         data.params.period_to,
+        usesPeriod,
     ]);
 
     const selectType = (t: DataRequestType) => {
@@ -229,12 +257,16 @@ export default function RequestCreate({
         form.transform((d) => ({
             ...d,
             intent,
+            params,
             subject_pinfl: manual ? d.subject_pinfl : null,
         }));
         form.submit(store());
     };
 
     const selectedType = types.find((t) => t.value === data.type);
+    const matrixType = matrix.domains
+        .flatMap((d) => d.types)
+        .find((t) => t.value === data.type);
     const blockedReason =
         check && !check.ok
             ? check.reason
@@ -281,56 +313,100 @@ export default function RequestCreate({
                             </CardHeader>
                             <CardContent>
                                 <div
-                                    className="grid gap-3 sm:grid-cols-2"
+                                    className="space-y-5"
                                     role="radiogroup"
                                     aria-label="So'rov turi"
                                 >
-                                    {types.map((t) => {
-                                        const Icon = TYPE_ICONS[t.value];
-                                        const active = data.type === t.value;
+                                    {matrix.domains.map((domain) => (
+                                        <section
+                                            key={domain.key}
+                                            className="space-y-2"
+                                            aria-labelledby={`domain-${domain.key}`}
+                                        >
+                                            <div>
+                                                <h3
+                                                    id={`domain-${domain.key}`}
+                                                    className="text-sm font-semibold"
+                                                >
+                                                    {domain.title}
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {domain.summary}
+                                                </p>
+                                            </div>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                {domain.types.map((t) => {
+                                                    const Icon =
+                                                        REQUEST_TYPE_ICONS[
+                                                            t.value
+                                                        ];
+                                                    const active =
+                                                        data.type === t.value;
 
-                                        return (
-                                            <button
-                                                key={t.value}
-                                                type="button"
-                                                role="radio"
-                                                aria-checked={active}
-                                                onClick={() =>
-                                                    selectType(t.value)
-                                                }
-                                                className={cn(
-                                                    "flex items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/50",
-                                                    active &&
-                                                        "border-primary bg-primary/5 ring-2 ring-primary/20",
+                                                    return (
+                                                        <button
+                                                            key={t.value}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={
+                                                                active
+                                                            }
+                                                            onClick={() =>
+                                                                selectType(
+                                                                    t.value,
+                                                                )
+                                                            }
+                                                            className={cn(
+                                                                "flex items-start gap-3 rounded-md border p-3 text-left transition-colors hover:bg-muted/50",
+                                                                active &&
+                                                                    "border-primary bg-primary/5 ring-2 ring-primary/20",
+                                                            )}
+                                                        >
+                                                            <Icon
+                                                                className={cn(
+                                                                    "mt-0.5 size-5 shrink-0",
+                                                                    active
+                                                                        ? "text-primary"
+                                                                        : "text-muted-foreground",
+                                                                )}
+                                                                aria-hidden
+                                                            />
+                                                            <span className="min-w-0 space-y-1">
+                                                                <span className="block text-sm font-medium">
+                                                                    {t.label}
+                                                                </span>
+                                                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                    <Landmark
+                                                                        className="size-3 shrink-0"
+                                                                        aria-hidden
+                                                                    />
+                                                                    {t.agency}
+                                                                </span>
+                                                                <AccessBadge
+                                                                    access={
+                                                                        t.access
+                                                                    }
+                                                                    size="sm"
+                                                                />
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {matrixType &&
+                                                domain.types.some(
+                                                    (t) =>
+                                                        t.value === data.type,
+                                                ) && (
+                                                    <WhatYouGet
+                                                        type={matrixType}
+                                                        regime={
+                                                            selectedType?.secrecy_regime
+                                                        }
+                                                    />
                                                 )}
-                                            >
-                                                <Icon
-                                                    className={cn(
-                                                        "mt-0.5 size-5 shrink-0",
-                                                        active
-                                                            ? "text-primary"
-                                                            : "text-muted-foreground",
-                                                    )}
-                                                    aria-hidden
-                                                />
-                                                <span className="min-w-0 space-y-0.5">
-                                                    <span className="block text-sm font-medium">
-                                                        {t.label}
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                        <Landmark
-                                                            className="size-3"
-                                                            aria-hidden
-                                                        />
-                                                        {t.agency}
-                                                    </span>
-                                                    <span className="block text-xs text-foreground/75">
-                                                        {t.secrecy_regime}
-                                                    </span>
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                                        </section>
+                                    ))}
                                 </div>
                                 <InputError
                                     message={errs.type}
@@ -460,7 +536,30 @@ export default function RequestCreate({
                                     </div>
                                 )}
 
-                                {data.type === "salary" && (
+                                {PERIOD_TYPES.includes(data.type) &&
+                                    data.type !== "salary" && (
+                                        <label className="flex items-center gap-2 text-sm">
+                                            <input
+                                                type="checkbox"
+                                                className="accent-primary"
+                                                checked={periodOn}
+                                                onChange={(e) =>
+                                                    setPeriodOn(
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                            />
+                                            Davrni cheklash (oylar bo'yicha,
+                                            ixtiyoriy)
+                                            {data.type === "bank_accounts" && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    — aylanma so'nggi 6 oy uchun
+                                                    beriladi
+                                                </span>
+                                            )}
+                                        </label>
+                                    )}
+                                {usesPeriod && (
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <div className="space-y-1.5">
                                             <Label htmlFor="period_from">
@@ -733,6 +832,65 @@ export default function RequestCreate({
                 </div>
             </form>
         </>
+    );
+}
+
+/** "Nima olinadi" — items + law refs (lex.uz) for the selected type, from LegalMatrix. */
+function WhatYouGet({
+    type,
+    regime,
+}: {
+    type: LegalMatrixType;
+    regime?: string;
+}) {
+    return (
+        <div className="rounded-md border bg-muted/30 p-3 text-sm">
+            <p className="flex items-center gap-1.5 font-medium">
+                <ListChecks className="size-4 text-primary" aria-hidden />
+                Nima olinadi
+            </p>
+            <ul className="mt-1.5 grid gap-x-4 gap-y-0.5 text-xs text-foreground/80 sm:grid-cols-2">
+                {type.items.map((item) => (
+                    <li key={item} className="flex gap-1.5">
+                        <span aria-hidden>·</span>
+                        {item}
+                    </li>
+                ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">{type.why}</p>
+            {regime && (
+                <p className="mt-1 text-xs text-foreground/75">{regime}</p>
+            )}
+            <ul className="mt-2 space-y-0.5 text-xs">
+                {type.refs.map((ref) => {
+                    const title = `${ref.law}${ref.article ? `, ${ref.article}-modda` : ""}`;
+
+                    return (
+                        <li key={`${ref.law}-${ref.article}`}>
+                            {ref.url ? (
+                                <a
+                                    href={ref.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                                >
+                                    {title}
+                                    <ExternalLink
+                                        className="size-3"
+                                        aria-hidden
+                                    />
+                                </a>
+                            ) : (
+                                <span className="font-medium">{title}</span>
+                            )}{" "}
+                            <span className="text-muted-foreground">
+                                — {ref.note}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
     );
 }
 

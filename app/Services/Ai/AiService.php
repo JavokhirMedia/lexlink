@@ -8,8 +8,9 @@ use App\Models\LegalCase;
 
 /**
  * AI assistant. Implementation: GeminiAiService (Gemini + lex.uz RAG).
- * RULES (legal): F.I.Sh. and JShShIR are masked BEFORE leaving the server
- * (ShMQ 27-1 localisation); every output is labelled "maslahat emas, yordamchi tahlil";
+ * RULES (legal): only egasizlantirilgan data leaves the server (ShMQ 16-modda) — via
+ * Anonymization\AnonymizationGateway, the only path to Gemini; such data is no longer personal data, so
+ * transchegaraviy uzatish (ShMQ 15-modda) is not triggered. Every output is labelled "maslahat emas, yordamchi tahlil";
  * numbers (averages, alimony) are computed in PHP, never by the model.
  */
 interface AiService

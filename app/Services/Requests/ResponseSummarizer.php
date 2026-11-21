@@ -3,6 +3,8 @@
 namespace App\Services\Requests;
 
 use App\Enums\DataRequestType;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 
 /**
  * Builds the non-PII summary (counts, totals, period) kept after the full payload is purged.
@@ -19,6 +21,10 @@ class ResponseSummarizer
             DataRequestType::Property => $this->property($data),
             DataRequestType::Vehicle => $this->vehicle($data),
             DataRequestType::CourtCase => $this->courtCase($data),
+            DataRequestType::TaxInfo => $this->taxInfo($data),
+            DataRequestType::BusinessShares => $this->businessShares($data),
+            DataRequestType::BankAccounts => $this->bankAccounts($data),
+            DataRequestType::BorderCrossing => $this->borderCrossing($data),
         };
     }
 
@@ -81,5 +87,98 @@ class ResponseSummarizer
             'decisions_count' => count($data['decisions'] ?? []),
             'next_hearing' => $next,
         ];
+    }
+
+    private function taxInfo(array $data): array
+    {
+        $ie = $data['individual_entrepreneur'] ?? [];
+
+        return [
+            'tin_present' => ! empty($data['tin']),
+            'tax_regime' => $data['tax_regime'] ?? null,
+            'vat_payer' => (bool) ($data['vat_payer'] ?? false),
+            'is_individual_entrepreneur' => ! empty($ie['activity']) || str_starts_with((string) ($ie['status'] ?? ''), 'YaTT sifatida'),
+            'ie_activity' => $ie['activity'] ?? null,
+            'tax_debt' => (int) ($data['tax_debt'] ?? 0),
+            'taxes_paid_last_year' => (int) ($data['taxes_paid_last_year'] ?? 0),
+            'participations_count' => count($data['participations'] ?? []),
+        ];
+    }
+
+    private function businessShares(array $data): array
+    {
+        $companies = collect($data['companies'] ?? []);
+        $value = fn ($c) => (int) round((int) ($c['charter_capital'] ?? 0) * (float) ($c['share_percent'] ?? 0) / 100);
+
+        return [
+            'companies_count' => $companies->count(),
+            'active_count' => $companies->filter(fn ($c) => ($c['status'] ?? null) === 'Faol')->count(),
+            'total_share_value' => (int) $companies->sum($value),
+            'largest_share_percent' => $companies->max(fn ($c) => (float) ($c['share_percent'] ?? 0)),
+        ];
+    }
+
+    private function bankAccounts(array $data): array
+    {
+        $accounts = collect($data['accounts'] ?? []);
+        $totals = $accounts->groupBy(fn ($a) => $a['currency'] ?? 'UZS')->map(fn ($g) => [
+            'balance' => (int) $g->sum(fn ($a) => (int) ($a['balance'] ?? 0)),
+            'turnover_in' => (int) $g->sum(fn ($a) => (int) ($a['turnover_in'] ?? 0)),
+            'turnover_out' => (int) $g->sum(fn ($a) => (int) ($a['turnover_out'] ?? 0)),
+            'accounts' => $g->count(),
+        ])->sortKeys()->all();
+
+        return [
+            'accounts_count' => $accounts->count(),
+            'banks_count' => $accounts->pluck('bank')->filter()->unique()->count(),
+            'totals_by_currency' => $totals,
+            'restricted_count' => $accounts->filter(fn ($a) => ! empty($a['restrictions']))->count(),
+            'turnover_months' => (int) ($data['turnover_period']['months'] ?? 6),
+        ];
+    }
+
+    private function borderCrossing(array $data, ?CarbonInterface $now = null): array
+    {
+        $now ??= now();
+        $crossings = collect($data['crossings'] ?? [])->sortBy('date')->values();
+        $last = $crossings->last();
+        $lastExit = $crossings->where('direction', 'exit')->last() ?? ($data['last_exit'] ?? null);
+        $abroad = $last ? ($last['direction'] ?? null) === 'exit' : (bool) ($data['currently_abroad'] ?? false);
+
+        // days abroad within the last 12 months (open exit counts up to today)
+        $windowStart = $now->copy()->subYear();
+        $days = 0;
+        $out = null;
+        foreach ($crossings as $c) {
+            $at = Carbon::parse($c['date']);
+            if (($c['direction'] ?? null) === 'exit') {
+                $out = $at;
+            } elseif ($out) {
+                $days += $this->overlap($out, $at, $windowStart, $now);
+                $out = null;
+            }
+        }
+        if ($out) {
+            $days += $this->overlap($out, $now, $windowStart, $now);
+        }
+
+        return [
+            'crossings_count' => $crossings->count(),
+            'exits_count' => $crossings->where('direction', 'exit')->count(),
+            'currently_abroad' => $abroad,
+            'last_exit_date' => $lastExit ? substr((string) $lastExit['date'], 0, 10) : null,
+            'last_exit_country' => $lastExit['country'] ?? null,
+            'days_abroad_current' => $abroad && $lastExit ? (int) Carbon::parse($lastExit['date'])->startOfDay()->diffInDays($now->copy()->startOfDay()) : 0,
+            'days_abroad_last_12m' => $days,
+            'countries' => $crossings->pluck('country')->filter()->unique()->values()->all(),
+        ];
+    }
+
+    private function overlap(CarbonInterface $a, CarbonInterface $b, CarbonInterface $from, CarbonInterface $to): int
+    {
+        $start = $a->copy()->max($from);
+        $end = $b->copy()->min($to);
+
+        return $end->greaterThan($start) ? (int) $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) : 0;
     }
 }

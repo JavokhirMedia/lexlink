@@ -68,6 +68,16 @@ trait FakesGovDataProvider
             {
                 throw new GovApiException('not faked');
             }
+
+            public function advocateOrder(string $number): ?array
+            {
+                return null;
+            }
+
+            public function issueAdvocateOrder(array $data): array
+            {
+                throw new GovApiException('not faked');
+            }
         };
 
         $this->app->instance(GovDataProvider::class, $this->gov);

@@ -3,11 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\Mock\MockAdvocateLicense;
+use App\Models\Mock\MockBankAccount;
+use App\Models\Mock\MockBorderCrossing;
+use App\Models\Mock\MockBusinessShare;
 use App\Models\Mock\MockCourtCase;
 use App\Models\Mock\MockCourtDecision;
 use App\Models\Mock\MockPerson;
 use App\Models\Mock\MockProperty;
 use App\Models\Mock\MockSalary;
+use App\Models\Mock\MockTaxProfile;
 use App\Models\Mock\MockVehicle;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -36,7 +40,21 @@ class MockGovSeeder extends Seeder
 
     public const DEMO_DECISION = '2-1001-2611/0457';
 
+    /** Second decision in the demo case: bank secret + border crossings (court-only types). */
+    public const DEMO_DECISION_2 = '2-1001-2611/0458';
+
     public const DEMO_CASE = '2-1001-2610/0398';
+
+    /** Fictional banks only — never real bank names. */
+    private const BANKS = ['"Namuna Bank" ATB', '"Sharq Kapital Bank" ATB', '"Yangi Asr Bank" ATB', '"Ipak Karvon Bank" AJ', '"Bunyodkor Moliya Bank" ATB'];
+
+    private const CHECKPOINTS = [
+        ['Toshkent xalqaro aeroporti', ['Turkiya', 'Rossiya', 'Birlashgan Arab Amirliklari', 'Janubiy Koreya', 'Germaniya']],
+        ['Samarqand xalqaro aeroporti', ['Turkiya', 'Rossiya']],
+        ['Oybek CHP', ["Qozog'iston"]],
+        ['"Yallama" CHP', ["Qozog'iston"]],
+        ["Do'stlik CHP", ["Qirg'iziston"]],
+    ];
 
     private const COURTS = [
         'yunusobod' => 'Toshkent shahar Yunusobod tumanlararo fuqarolik ishlari sudi',
@@ -63,7 +81,7 @@ class MockGovSeeder extends Seeder
     {
         mt_srand(20261120);
 
-        foreach ([MockSalary::class, MockProperty::class, MockVehicle::class, MockCourtDecision::class, MockCourtCase::class, MockAdvocateLicense::class, MockPerson::class] as $model) {
+        foreach ([MockBorderCrossing::class, MockBankAccount::class, MockBusinessShare::class, MockTaxProfile::class, MockSalary::class, MockProperty::class, MockVehicle::class, MockCourtDecision::class, MockCourtCase::class, MockAdvocateLicense::class, MockPerson::class] as $model) {
             $model::query()->delete();
         }
 
@@ -80,6 +98,10 @@ class MockGovSeeder extends Seeder
         $this->salaries($persons);
         $this->properties($persons, $pinflOf);
         $this->vehicles($persons, $pinflOf);
+        $this->businessShares($persons, $pinflOf);
+        $this->taxProfiles($persons);
+        $this->bankAccounts($persons, $pinflOf);
+        $this->borderCrossings($persons, $pinflOf);
     }
 
     /** 30 fictional citizens. */
@@ -181,8 +203,12 @@ class MockGovSeeder extends Seeder
                 [$party("Da'vogar", self::CLAIMANT), $party('Javobgar', self::DEBTOR)],
                 [['date' => '2026-11-05', 'time' => '10:00', 'room' => '12-xona', 'note' => 'Tayyorgarlik bosqichi'],
                     ['date' => '2026-12-03', 'time' => '14:30', 'room' => '12-xona', 'note' => 'Asosiy sud majlisi']],
-                [self::DEMO_DECISION, 'ajrim', self::DEBTOR, ['salary', 'court_case'], '2026-11-10', '2027-05-10',
-                    "Javobgarning ish haqi va boshqa daromadlari to'g'risidagi ma'lumotlarni soliq va pensiya organlaridan talab qilib olish to'g'risida ajrim.", null]],
+                [
+                    [self::DEMO_DECISION, 'ajrim', self::DEBTOR, ['salary', 'court_case'], '2026-11-10', '2027-05-10',
+                        "Javobgarning ish haqi va boshqa daromadlari to'g'risidagi ma'lumotlarni soliq va pensiya organlaridan talab qilib olish to'g'risida ajrim.", null],
+                    [self::DEMO_DECISION_2, 'ajrim', self::DEBTOR, ['bank_accounts', 'border_crossing'], '2026-11-10', '2027-05-10',
+                        "Javobgarning banklardagi hisobvaraqlari (qoldiq va aylanmalar) hamda chegaradan o'tish ma'lumotlarini aliment majburiyatidan bo'yin tovlash holatini aniqlash uchun talab qilib olish to'g'risida ajrim.", null],
+                ]],
             ['2-1004-2608/0655', $c['chilonzor'], 'Qosimov B. A.', 'Er-xotin umumiy mol-mulkini taqsimlash', "Ko'rib chiqilmoqda",
                 [$party("Da'vogar", $pinflOf('Rahimova')), $party('Javobgar', self::PROPERTY_SUBJECT)],
                 [['date' => '2026-10-14', 'time' => '11:00', 'room' => '5-xona', 'note' => 'Sud majlisi'],
@@ -203,7 +229,7 @@ class MockGovSeeder extends Seeder
                 [$party("Da'vogar", $pinflOf('Usmonova')), $party('Javobgar', $pinflOf('Sobirov'))],
                 [['date' => '2026-08-20', 'time' => '10:30', 'room' => '7-xona', 'note' => 'Tayyorgarlik bosqichi'],
                     ['date' => '2026-11-26', 'time' => '10:30', 'room' => '7-xona', 'note' => 'Asosiy sud majlisi']],
-                ['2-1007-2608/0302', 'ajrim', $pinflOf('Sobirov'), ['salary', 'property', 'vehicle', 'court_case'], '2026-08-28', '2027-02-28',
+                ['2-1007-2608/0302', 'ajrim', $pinflOf('Sobirov'), ['salary', 'property', 'vehicle', 'court_case', 'bank_accounts'], '2026-08-28', '2027-02-28',
                     "Javobgarning daromadlari va mol-mulki to'g'risidagi ma'lumotlarni talab qilish to'g'risida ajrim.", null]],
             ['2-1801-2609/0488', $c['samarqand'], 'Tojiyeva N. R.', 'Merosni taqsimlash', 'Ish yuritishda',
                 [$party("Da'vogar", $pinflOf('Sultonova')), $party('Javobgar', $pinflOf('Mirzayev'))],
@@ -250,8 +276,8 @@ class MockGovSeeder extends Seeder
         foreach ($cases as [$number, $court, $judge, $category, $status, $parties, $hearings, $decision]) {
             $decisions = [];
 
-            if ($decision) {
-                [$dNumber, $dType, $subject, $allowed, $issued, $expires, $summary, $license] = $decision;
+            foreach ($decision === null ? [] : (is_array($decision[0]) ? $decision : [$decision]) as $one) {
+                [$dNumber, $dType, $subject, $allowed, $issued, $expires, $summary, $license] = $one;
                 MockCourtDecision::create([
                     'number' => $dNumber,
                     'case_number' => $number,
@@ -424,6 +450,181 @@ class MockGovSeeder extends Seeder
             'pinfl' => $pinfl, 'model' => $model, 'year' => $year, 'plate' => $plate, 'color' => $color,
             'vin' => $vin, 'registered_at' => $registered, 'pledge' => $pledge,
         ]);
+    }
+
+    /** Participations in legal entities (Soliq kodeksi 29-m. 6-band — not a tax secret). */
+    private function businessShares(array $persons, callable $pinflOf): void
+    {
+        $fixed = [
+            [self::DEBTOR, '"Karimov Savdo Servis" MChJ', '310457812', 40.00, 50_000_000, '2022-04-18', 'Faol'],
+            [self::PROPERTY_SUBJECT, '"Bekzod Qurilish Montaj" MChJ', '311238904', 100.00, 120_000_000, '2019-09-02', 'Faol'],
+            [self::PROPERTY_SUBJECT, '"Chilonzor Avto Servis" MChJ', '312904417', 25.00, 40_000_000, '2021-02-11', "Faoliyati to'xtatilgan"],
+            [$pinflOf('Sobirov'), '"Qorasuv Agro" fermer xo\'jaligi', '313550271', 50.00, 30_000_000, '2018-06-25', 'Faol'],
+            [$pinflOf("Jo'rayev"), '"Sergeli Plast" MChJ', '314671239', 33.33, 90_000_000, '2023-03-14', 'Faol'],
+            [$pinflOf('Mirzayev'), '"Samarqand Meva Eksport" MChJ', '315782340', 15.00, 200_000_000, '2017-11-30', 'Tugatish jarayonida'],
+        ];
+        $rows = [];
+        foreach ($fixed as [$pinfl, $name, $tin, $pct, $capital, $since, $status]) {
+            $rows[] = $this->shareRow($pinfl, $name, $tin, $pct, $capital, $since, $status);
+        }
+
+        $names = ['"Navro\'z Print" MChJ', '"Yashil Vodiy Agro" MChJ', '"Zamin IT Yechimlar" MChJ', '"Oq Saroy Mebel" MChJ', '"Sharq Tekstil Invest" MChJ', '"Toshkent Non Savdo" XK'];
+        $taken = array_column($fixed, 0);
+        foreach ($persons as $i => $p) {
+            if (in_array($p['pinfl'], $taken, true) || mt_rand(1, 100) > 25) {
+                continue;
+            }
+            $rows[] = $this->shareRow(
+                $p['pinfl'], $names[$i % count($names)], (string) (316000000 + $i * 7307),
+                [10.0, 20.0, 25.0, 50.0, 100.0][mt_rand(0, 4)], mt_rand(2, 40) * 5_000_000,
+                Carbon::create(mt_rand(2012, 2025), mt_rand(1, 12), mt_rand(1, 28))->toDateString(), 'Faol',
+            );
+        }
+
+        MockBusinessShare::insert($rows);
+    }
+
+    private function shareRow(string $pinfl, string $name, string $tin, float $pct, int $capital, string $since, string $status): array
+    {
+        return [
+            'pinfl' => $pinfl, 'company_name' => $name, 'company_tin' => $tin, 'share_percent' => $pct,
+            'charter_capital' => $capital, 'since' => $since, 'company_status' => $status,
+            'created_at' => now(), 'updated_at' => now(),
+        ];
+    }
+
+    /** Open part of tax data (Soliq kodeksi 29-m. 1–8-bandlar) for everyone. */
+    private function taxProfiles(array $persons): void
+    {
+        // last 12 months of seeded salary (2025-11..2026-10) as the income base
+        $yearIncome = MockSalary::query()->selectRaw('pinfl, SUM(amount) as total')->groupBy('pinfl')->pluck('total', 'pinfl');
+        $activities = ['Chakana savdo (oziq-ovqat)', "Go'zallik saloni xizmatlari", 'Yuk tashish xizmatlari', 'Kompyuter ta\'mirlash', 'Tikuvchilik'];
+        $rows = [];
+
+        foreach ($persons as $i => $p) {
+            $isDebtor = $p['pinfl'] === self::DEBTOR;
+            $ie = ! $isDebtor && mt_rand(1, 100) <= 18;
+            $income = (int) ($yearIncome[$p['pinfl']] ?? 0);
+            $rows[] = [
+                'pinfl' => $p['pinfl'],
+                'tin' => $isDebtor ? '487120345' : (string) (480000000 + $i * 104729 % 9999999),
+                'tax_regime' => $ie
+                    ? (mt_rand(0, 1) ? 'Aylanmadan olinadigan soliq (YaTT)' : "Qat'iy belgilangan soliq (YaTT)")
+                    : "Jismoniy shaxslardan olinadigan daromad solig'i (ish beruvchi orqali)",
+                'vat_payer' => $ie && mt_rand(1, 100) <= 15,
+                'is_individual_entrepreneur' => $ie,
+                'ie_activity' => $ie ? $activities[$i % count($activities)] : null,
+                'tax_debt' => $isDebtor ? 1_200_000 : (mt_rand(1, 100) <= 12 ? mt_rand(1, 40) * 50_000 : 0),
+                'taxes_paid_last_year' => (int) round($income * 0.12 / 1000) * 1000 + ($ie ? mt_rand(5, 30) * 100_000 : 0),
+                'registered_at' => Carbon::parse($p['birth_date'])->addYears(18)->addDays(mt_rand(0, 300))->toDateString(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        MockTaxProfile::insert($rows);
+    }
+
+    /** Bank accounts (bank secret). Turnover = last 6 months. */
+    private function bankAccounts(array $persons, callable $pinflOf): void
+    {
+        $fixed = [
+            [self::DEBTOR, self::BANKS[0], '20206000****4417', 'UZS', 18_436_500, 41_250_000, 39_870_000, '2019-02-14', []],
+            [self::DEBTOR, self::BANKS[1], '20206840****0932', 'USD', 2_350, 6_800, 5_100, '2024-07-01', []],
+            [self::PROPERTY_SUBJECT, self::BANKS[0], '20206000****7781', 'UZS', 4_120_000, 38_400_000, 37_950_000, '2016-08-30',
+                [['type' => 'Ipoteka bo\'yicha avtomatik yechish', 'by' => self::BANKS[0], 'since' => '2016-08-30']]],
+            [$pinflOf('Sobirov'), self::BANKS[2], '20206000****3150', 'UZS', 960_000, 22_100_000, 23_400_000, '2020-05-12',
+                [['type' => "Ijro hujjati bo'yicha hisobvaraqqa xatlov", 'by' => "Majburiy ijro byurosi Mirzo Ulug'bek tuman bo'limi", 'since' => '2026-09-05']]],
+        ];
+        $rows = [];
+        foreach ($fixed as $row) {
+            $rows[] = $this->accountRow(...$row);
+        }
+
+        $taken = array_column($fixed, 0);
+        foreach ($persons as $i => $p) {
+            if (in_array($p['pinfl'], $taken, true)) {
+                continue;
+            }
+            $count = mt_rand(1, 100) <= 30 ? 2 : 1;
+            for ($k = 0; $k < $count; $k++) {
+                $usd = $k === 1 && mt_rand(0, 1);
+                $in = $usd ? mt_rand(5, 60) * 100 : mt_rand(10, 120) * 500_000;
+                $rows[] = $this->accountRow(
+                    $p['pinfl'], self::BANKS[($i + $k) % count(self::BANKS)],
+                    sprintf('20206%s****%04d', $usd ? '840' : '000', ($i * 37 + $k * 911) % 10000),
+                    $usd ? 'USD' : 'UZS',
+                    $usd ? mt_rand(1, 80) * 50 : mt_rand(1, 60) * 250_000,
+                    $in, (int) round($in * mt_rand(80, 105) / 100),
+                    Carbon::create(mt_rand(2012, 2025), mt_rand(1, 12), mt_rand(1, 28))->toDateString(), [],
+                );
+            }
+        }
+
+        MockBankAccount::insert($rows);
+    }
+
+    private function accountRow(string $pinfl, string $bank, string $mask, string $currency, int $balance, int $in, int $out, string $opened, array $restrictions): array
+    {
+        return [
+            'pinfl' => $pinfl, 'bank_name' => $bank, 'account_mask' => $mask, 'currency' => $currency, 'balance' => $balance,
+            'turnover_in' => $in, 'turnover_out' => $out, 'opened_at' => $opened,
+            'restrictions' => json_encode($restrictions, JSON_UNESCAPED_UNICODE),
+            'created_at' => now(), 'updated_at' => now(),
+        ];
+    }
+
+    /** Border crossings (personal life — special personal data, ShMQ 25). */
+    private function borderCrossings(array $persons, callable $pinflOf): void
+    {
+        $rows = [];
+        $air = 'Toshkent xalqaro aeroporti';
+
+        // Demo debtor: Turkey trip (returned), then left for Russia on 2026-08-14 and has NOT returned.
+        foreach ([
+            ['exit', '2026-03-02 06:40', 'Turkiya', $air],
+            ['entry', '2026-03-16 22:15', 'Turkiya', $air],
+            ['exit', '2026-08-14 04:55', 'Rossiya', $air],
+        ] as [$dir, $at, $country, $cp]) {
+            $rows[] = $this->crossingRow(self::DEBTOR, $dir, $at, $country, $cp);
+        }
+
+        // Sobirov: frequent trips to Kazakhstan by land, all returned.
+        foreach ([['2026-04-10 09:20', '2026-04-13 18:05'], ['2026-07-01 08:00', '2026-07-03 20:30']] as [$out, $back]) {
+            $rows[] = $this->crossingRow($pinflOf('Sobirov'), 'exit', $out, "Qozog'iston", 'Oybek CHP');
+            $rows[] = $this->crossingRow($pinflOf('Sobirov'), 'entry', $back, "Qozog'iston", 'Oybek CHP');
+        }
+
+        $taken = [self::DEBTOR, $pinflOf('Sobirov')];
+        foreach ($persons as $p) {
+            if (in_array($p['pinfl'], $taken, true) || mt_rand(1, 100) > 40) {
+                continue;
+            }
+            $trips = mt_rand(1, 3);
+            $cursor = Carbon::create(2025, mt_rand(1, 6), mt_rand(1, 28), mt_rand(5, 22), 0);
+            for ($t = 0; $t < $trips; $t++) {
+                [$cp, $countries] = self::CHECKPOINTS[mt_rand(0, count(self::CHECKPOINTS) - 1)];
+                $country = $countries[mt_rand(0, count($countries) - 1)];
+                $out = $cursor->copy()->addDays(mt_rand(20, 120));
+                $back = $out->copy()->addDays(mt_rand(3, 21))->addHours(mt_rand(1, 12));
+                if ($back->isAfter(Carbon::create(2026, 11, 1))) {
+                    break;
+                }
+                $rows[] = $this->crossingRow($p['pinfl'], 'exit', $out->format('Y-m-d H:i'), $country, $cp);
+                $rows[] = $this->crossingRow($p['pinfl'], 'entry', $back->format('Y-m-d H:i'), $country, $cp);
+                $cursor = $back;
+            }
+        }
+
+        MockBorderCrossing::insert($rows);
+    }
+
+    private function crossingRow(string $pinfl, string $direction, string $at, string $country, string $checkpoint): array
+    {
+        return [
+            'pinfl' => $pinfl, 'direction' => $direction, 'crossed_at' => $at.':00', 'country' => $country,
+            'checkpoint' => $checkpoint, 'created_at' => now(), 'updated_at' => now(),
+        ];
     }
 
     private function vin(): string

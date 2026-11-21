@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class DataRequest extends Model
 {
-    protected $fillable = ['case_id', 'legal_basis_id', 'type', 'subject_pinfl', 'subject_name', 'params', 'purpose', 'request_text', 'status', 'created_by', 'signed_by', 'signed_at', 'signature', 'gov_request_id', 'cost', 'charged_from_subscription', 'submitted_at', 'completed_at', 'rejection_reason', 'failure_reason'];
+    protected $fillable = ['case_id', 'legal_basis_id', 'type', 'subject_pinfl', 'subject_name', 'params', 'purpose', 'request_text', 'status', 'created_by', 'signed_by', 'signed_at', 'signature', 'gov_request_id', 'cost', 'charged_from_subscription', 'submitted_at', 'due_at', 'deadline_basis', 'completed_at', 'rejection_reason', 'failure_reason'];
 
     protected $hidden = ['subject_pinfl', 'subject_pinfl_hash'];
 
@@ -28,6 +28,7 @@ class DataRequest extends Model
             'params' => 'array',
             'signed_at' => 'datetime',
             'submitted_at' => 'datetime',
+            'due_at' => 'datetime',
             'completed_at' => 'datetime',
             'charged_from_subscription' => 'boolean',
         ];

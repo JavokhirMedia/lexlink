@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiAnalysis extends Model
 {
-    protected $fillable = ['data_request_id', 'case_id', 'created_by', 'kind', 'status', 'model', 'prompt_version', 'output', 'structured', 'citations', 'tokens', 'cost'];
+    protected $fillable = ['data_request_id', 'case_id', 'created_by', 'kind', 'status', 'model', 'prompt_version', 'output', 'sent_payload', 'anonymization_report', 'structured', 'citations', 'tokens', 'cost'];
 
     protected function casts(): array
     {
-        return ['structured' => 'array', 'citations' => 'array'];
+        return ['structured' => 'array', 'citations' => 'array', 'anonymization_report' => 'array'];
     }
 
     public function dataRequest(): BelongsTo

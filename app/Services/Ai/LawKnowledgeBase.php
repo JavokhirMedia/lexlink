@@ -3,6 +3,9 @@
 namespace App\Services\Ai;
 
 use App\Models\LawChunk;
+use App\Services\Ai\Anonymization\AnonymizationContext;
+use App\Services\Ai\Anonymization\AnonymizationGateway;
+use App\Services\Ai\Anonymization\PiiLeakBlocked;
 use App\Services\Ai\Lex\LexCatalog;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -12,7 +15,8 @@ use Throwable;
 /**
  * RAG over lex.uz articles stored in law_chunks.
  * Semantic search = Gemini query embedding + cosine (dot product of L2-normalised vectors) in PHP;
- * falls back to keyword (LIKE) scoring when there is no key, no embeddings, or Gemini errors.
+ * falls back to keyword (LIKE) scoring when there is no key, no embeddings, Gemini errors, or the
+ * anonymisation leak guard blocks the query. The query embedding goes through AnonymizationGateway like any prompt.
  */
 class LawKnowledgeBase
 {
@@ -23,12 +27,13 @@ class LawKnowledgeBase
 
     private const STOPWORDS = ['va', 'yoki', 'bilan', 'uchun', 'bu', 'shu', 'qanday', 'qaysi', 'nima', 'necha', 'qancha', 'kerak', 'mumkin', 'emas', 'bor', 'yoʻq', 'ham', 'esa', 'agar', 'deb', 'oʻz', 'men', 'biz', 'ular', 'uni', 'bunda', 'haqida', 'boʻyicha', 'toʻgʻrisida', 'qilish', 'boʻladi', 'hisoblanadi', 'modda', 'moddasi', 'qonun', 'qonuni', 'kodeks', 'kodeksi'];
 
-    public function __construct(private GeminiClient $gemini) {}
+    public function __construct(private GeminiClient $gemini, private AnonymizationGateway $gateway) {}
 
     /**
+     * @param  AnonymizationContext|null  $ctx  case / user context for the leak guard (null = context-free detectors only)
      * @return Collection<int, LawChunk>
      */
-    public function search(string $query, int $k = 6): Collection
+    public function search(string $query, int $k = 6, ?AnonymizationContext $ctx = null): Collection
     {
         $query = trim($query);
         if ($query === '') {
@@ -37,7 +42,9 @@ class LawKnowledgeBase
 
         if ($this->gemini->enabled() && $this->hasEmbeddings()) {
             try {
-                return $this->semanticSearch($query, $k);
+                return $this->semanticSearch($query, $k, $ctx);
+            } catch (PiiLeakBlocked) {
+                // already audited + logged by the gateway; search locally instead
             } catch (Throwable $e) {
                 Log::warning('LawKnowledgeBase semantic search failed, using keyword fallback', ['error' => $e->getMessage()]);
             }
@@ -139,9 +146,10 @@ class LawKnowledgeBase
     }
 
     /** @return Collection<int, LawChunk> */
-    private function semanticSearch(string $query, int $k): Collection
+    private function semanticSearch(string $query, int $k, ?AnonymizationContext $ctx): Collection
     {
-        $q = Cache::remember('lex.q.'.sha1($this->gemini->embeddingModel().'|'.$query), now()->addDay(), fn () => $this->gemini->embedQuery($query));
+        $payload = $this->gateway->queryEmbedding($query, $ctx ?? AnonymizationContext::public('query_embedding'));
+        $q = Cache::remember('lex.q.'.sha1($this->gemini->embeddingModel().'|'.$payload->texts[0]), now()->addDay(), fn () => $this->gemini->embedQuery($payload));
         if ($q === []) {
             return $this->keywordSearch($query, $k);
         }

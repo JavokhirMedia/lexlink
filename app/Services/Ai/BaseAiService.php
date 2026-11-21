@@ -5,21 +5,31 @@ namespace App\Services\Ai;
 use App\Enums\AuditAction;
 use App\Enums\DataRequestStatus;
 use App\Enums\DataRequestType;
+use App\Enums\LegalBasisType;
 use App\Models\AiAnalysis;
 use App\Models\DataRequest;
 use App\Models\LegalCase;
 use App\Models\User;
+use App\Services\Ai\Anonymization\AnonymizationContext;
+use App\Services\Ai\Anonymization\AnonymizationGateway;
+use App\Services\Ai\Anonymization\AnonymizationReport;
+use App\Services\Ai\Anonymization\ResponseProjector;
 use App\Services\AuditLogger;
 use App\Services\BillingService;
+use App\Services\Requests\ResponseSummarizer;
 use Illuminate\Support\Collection;
 
 /**
  * Shared pipeline for every AI operation:
- *   1. build facts from the case/request and MASK all PII (PiiMasker),
- *   2. compute numbers in PHP (AlimonyCalculator),
- *   3. retrieve lex.uz articles (deterministic legal refs + RAG search),
- *   4. render a versioned prompt (resources/prompts) and complete() it — Gemini or a deterministic template,
- *   5. persist AiAnalysis (masked output + display map), audit, return.
+ *   1. build an AnonymizationContext for the case / request (every known person, identifier and payload leaf),
+ *   2. project the facts through an allowlist (ResponseProjector) — people / organisations / case numbers become
+ *      placeholders, as do addresses / plates / VIN / cadastral / account numbers / TIN / birth dates;
+ *      amounts and event dates stay so the analysis remains useful,
+ *   3. compute numbers in PHP (AlimonyCalculator, ResponseSummarizer),
+ *   4. retrieve lex.uz articles (deterministic legal refs + RAG search),
+ *   5. render a versioned prompt and complete() it — only through AnonymizationGateway (leak guard) to Gemini,
+ *      or a deterministic template,
+ *   6. persist AiAnalysis (masked output + display map + exact sent text + anonymisation report), audit, return.
  *
  * Subclasses only decide how text is generated (complete()).
  */
@@ -30,48 +40,58 @@ abstract class BaseAiService implements AiService
         protected AlimonyCalculator $calculator,
         protected PromptRepository $prompts,
         protected AuditLogger $audit,
+        protected AnonymizationGateway $gateway,
+        protected ResponseProjector $projector,
     ) {}
 
     /**
-     * Generate text for an already MASKED prompt. Must return the deterministic $fallback when generation is unavailable.
+     * Generate text for a prompt built from projected / masked facts. Must return the deterministic $fallback when
+     * generation is unavailable or the gateway blocks the call.
      *
-     * @return array{text: string, tokens: int, model: string}
+     * @param  list<string>  $public  verbatim public law text embedded in $prompt
+     * @return array{text: string, tokens: int, model: string, sent: ?string, report: array}
      */
-    abstract protected function complete(string $prompt, string $fallback, PiiMasker $masker, array $options = []): array;
+    abstract protected function complete(string $prompt, string $fallback, AnonymizationContext $ctx, array $options = [], array $public = []): array;
 
     // ------------------------------------------------------------------ AiService
 
     public function draftRequestText(DataRequest $request): string
     {
-        $request->loadMissing(['legalCase.owner.advocateProfile', 'legalBasis', 'creator']);
+        $request->loadMissing(['legalCase.owner.advocateProfile', 'legalBasis', 'creator', 'signer']);
         $case = $request->legalCase;
-        $masker = $this->maskerFor($case, $request);
+        $ctx = $this->contextFor($case, $request, 'request_text');
+        $masker = $ctx->masker;
         $type = $request->type;
 
         $refs = [['advokatura', '7-1'], ['advokatura', '6'], ['shaxsga-doir-malumotlar', '18'], ['advokatlik-kafolatlari', '4']];
-        if ($type === DataRequestType::Salary) {
-            $refs[] = ['soliq-kodeksi', '29'];
-        }
+        $refs = [...$refs, ...match ($type) {
+            DataRequestType::Salary, DataRequestType::TaxInfo, DataRequestType::BusinessShares => [['soliq-kodeksi', '29']],
+            DataRequestType::BankAccounts => [['bank-siri', '10']],
+            DataRequestType::BorderCrossing => [['shaxsga-doir-malumotlar', '25']],
+            default => [],
+        }];
         $sources = $this->sources($refs, null);
+        $context = $this->kb->context($sources);
 
         $advocate = $this->advocateFor($request);
+        $license = $advocate?->advocateProfile?->license_number;
         $vars = [
-            'advocate' => $masker->mask($advocate?->name ?? '[___]'),
+            'advocate' => $advocate ? ($ctx->person($advocate->name) ?? $masker->mask($advocate->name)) : '[___]',
             'client' => $masker->mask($case->client_name),
-            'basis' => $this->basisText($request),
+            'basis' => $this->basisText($request, $ctx),
             'data_requested' => $this->dataRequested($type),
             'period' => $this->periodText($request->params ?? []),
             'subject' => $masker->mask($request->subject_name ?: '[___]'),
-            'subject_pinfl' => $this->subjectPinflPlaceholder($masker, $request),
-            'secrecy_hint' => $type === DataRequestType::Salary ? ', soliq siri rejimi va sud qarori asosida berish' : '',
+            'subject_pinfl' => $this->subjectPinflPlaceholder($ctx, $request),
+            'secrecy_hint' => $this->secrecyHint($type),
             'attachments' => $this->requestAttachments($request),
-            'license' => $advocate?->advocateProfile?->license_number ?? '[___]',
-            'facts' => $this->requestFacts($request, $masker),
-            'sources' => $this->kb->context($sources),
+            'license' => $license ? $ctx->identifier('LITSENZIYA', 'license', $license) : '[___]',
+            'facts' => $this->requestFacts($request, $ctx),
+            'sources' => $context,
         ];
 
         [$prompt, $version] = $this->prompts->render('request_text', $vars);
-        $result = $this->complete($prompt, $this->fallbackRequestText($vars, $type, $sources), $masker, ['max_tokens' => 2048]);
+        $result = $this->complete($prompt, $this->fallbackRequestText($vars, $type, $sources), $ctx, ['max_tokens' => 2048], [$context]);
 
         $this->persist('request_text', $case, $request, $result, $masker, $version, $sources, ['type' => $type->value]);
 
@@ -82,10 +102,12 @@ abstract class BaseAiService implements AiService
     {
         $request->loadMissing(['legalCase.owner', 'legalBasis', 'response']);
         $case = $request->legalCase;
-        $masker = $this->maskerFor($case, $request);
+        $ctx = $this->contextFor($case, $request, 'analyze_response');
+        $masker = $ctx->masker;
         $data = $this->responseData($request);
-        $maskedData = $masker->maskArray($data);
-        $facts = $this->requestFacts($request, $masker);
+        $maskedData = $masker->maskArray($data); // local only: fallback templates + structured facts
+        $projected = $this->projector->project($request->type, $data, $ctx); // the only form of the payload the AI sees
+        $facts = $this->requestFacts($request, $ctx);
 
         if ($request->type === DataRequestType::Salary) {
             $children = AlimonyCalculator::detectChildren($request->params ?? [], $case->description, $request->purpose, $case->title);
@@ -94,31 +116,37 @@ abstract class BaseAiService implements AiService
                 [['oila-kodeksi', '99'], ['oila-kodeksi', '104'], ['oila-kodeksi', '102'], ['mehnat-kodeksi', '270']],
                 null,
             );
+            $context = $this->kb->context($sources);
             [$prompt, $version] = $this->prompts->render('analyze_salary', [
                 'facts' => $facts,
-                'payload' => $this->json($this->trimSalaryPayload($maskedData)),
+                'payload' => $this->json($projected),
                 'calculation' => $this->json($this->calcForPrompt($calc)),
-                'sources' => $this->kb->context($sources),
+                'sources' => $context,
             ]);
             $fallback = $this->fallbackSalarySummary($calc, $maskedData, $sources);
             $structured = ['type' => 'salary', 'alimony' => $calc, 'children_detected' => $children];
         } else {
             [$hint, $refs, $query] = $this->assetMeaning($request->type);
             $sources = $this->sources($refs, $query, 3);
+            $context = $this->kb->context($sources);
+            $numbers = $this->domainNumbers($request, $data);
             [$prompt, $version] = $this->prompts->render('analyze_asset', [
                 'type_label' => $request->type->label(),
                 'meaning_hint' => $hint,
                 'facts' => $facts,
-                'payload' => $this->json($maskedData),
-                'sources' => $this->kb->context($sources),
+                // PHP-computed figures travel with the payload so the model never does arithmetic
+                'payload' => $this->json($numbers ? ['javob' => $projected, 'hisoblangan_raqamlar_php' => $this->projector->numbers($numbers, $ctx)] : $projected),
+                'sources' => $context,
             ]);
-            $fallback = $this->fallbackAssetSummary($request->type, $maskedData, $sources);
-            $structured = ['type' => $request->type->value, 'facts' => $this->assetFacts($request->type, $maskedData)];
+            $fallback = $numbers
+                ? $this->fallbackDomainSummary($request->type, $numbers, $maskedData)
+                : $this->fallbackAssetSummary($request->type, $maskedData, $sources);
+            $structured = ['type' => $request->type->value, 'facts' => $this->assetFacts($request->type, $maskedData)] + ($numbers ? ['numbers' => $numbers] : []);
         }
 
-        $result = $this->complete($prompt, $fallback, $masker);
+        $result = $this->complete($prompt, $fallback, $ctx, [], [$context]);
         $analysis = $this->persist('summary', $case, $request, $result, $masker, $version, $sources, $structured);
-        $this->audit->log(AuditAction::AiAnalysis, $analysis, ['kind' => 'summary', 'request_id' => $request->id, 'model' => $analysis->model], $case->id);
+        $this->audit->log(AuditAction::AiAnalysis, $analysis, ['kind' => 'summary', 'request_id' => $request->id, 'model' => $analysis->model, 'leak_check' => $result['report']['leak_check'] ?? null], $case->id);
 
         return $analysis;
     }
@@ -127,7 +155,8 @@ abstract class BaseAiService implements AiService
     {
         $case->loadMissing(['owner.advocateProfile', 'dataRequests.response', 'dataRequests.legalBasis']);
         $user = $options['user'] ?? auth()->user();
-        $masker = $this->maskerFor($case);
+        $ctx = $this->contextFor($case, null, 'draft_claim', $user);
+        $masker = $ctx->masker;
 
         $completed = $case->dataRequests->filter(fn (DataRequest $r) => $r->status === DataRequestStatus::Completed && $r->response)->values();
         $salary = $completed->filter(fn (DataRequest $r) => $r->type === DataRequestType::Salary)->sortByDesc('completed_at')->first();
@@ -142,30 +171,32 @@ abstract class BaseAiService implements AiService
         $claimant = $masker->mask($case->client_name);
 
         $responses = $completed->map(fn (DataRequest $r) => [
-            'type' => $r->type->label(),
-            'agency' => $r->type->agency(),
-            'completed_at' => $r->completed_at?->toDateString(),
-            'data' => $masker->maskArray($r->type === DataRequestType::Salary ? $this->trimSalaryPayload($this->responseData($r)) : $this->responseData($r)),
+            'turi' => $r->type->label(),
+            'idora' => $r->type->agency(),
+            'olingan_sana' => $r->completed_at?->toDateString(),
+            'malumot' => $this->projector->project($r->type, $this->responseData($r), $ctx),
         ])->all();
 
         $sources = $this->sources(
             [['oila-kodeksi', '98'], ['oila-kodeksi', '99'], ['oila-kodeksi', '104'], ['oila-kodeksi', '112'], ['fuqarolik-protsessual-kodeksi', '189'], ['fuqarolik-protsessual-kodeksi', '34'], ['fuqarolik-protsessual-kodeksi', '187']],
-            $completed->contains(fn ($r) => in_array($r->type, [DataRequestType::Property, DataRequestType::Vehicle], true)) ? "da'voni ta'minlash choralari mol-mulkka xatlov" : null,
+            $completed->contains(fn ($r) => in_array($r->type, self::ASSET_TYPES, true)) ? "da'voni ta'minlash choralari mol-mulkka xatlov" : null,
             2,
         );
+        $context = $this->kb->context($sources);
 
+        $court = trim((string) ($options['court'] ?? ''));
         $vars = [
-            'court' => $options['court'] ?? "[___] tumanlararo fuqarolik ishlari bo'yicha sudi",
+            'court' => $court !== '' ? $ctx->identifier('SUD', 'court_name', $court) : "[___] tumanlararo fuqarolik ishlari bo'yicha sudi",
             'claimant' => $claimant,
             'defendant' => $defendant,
-            'defendant_pinfl' => $salary ? $this->subjectPinflPlaceholder($masker, $salary) : '[___]',
-            'advocate' => $masker->mask($case->owner?->name ?? '[___]'),
+            'defendant_pinfl' => $salary ? $this->subjectPinflPlaceholder($ctx, $salary) : '[___]',
+            'advocate' => $case->owner ? ($ctx->person($case->owner->name) ?? '[___]') : '[___]',
             'children_text' => $children ? "{$children} nafar" : 'bolalar soni koʻrsatilmagan — [___]',
-            'attachments' => implode('; ', $this->claimAttachments($completed)),
-            'facts' => $this->caseFacts($case, $masker),
+            'attachments' => implode('; ', $this->claimAttachments($completed, $ctx)),
+            'facts' => $this->caseFacts($case, $ctx),
             'responses' => $this->json($responses),
-            'calculation' => $calc ? $this->json($this->calcForPrompt($calc)) : "Ish haqi ma'lumoti hali olinmagan.",
-            'sources' => $this->kb->context($sources),
+            'calculation' => $calc ? $this->json($this->calcForPrompt($calc) + ($this->projector->numbers($this->claimAssetNumbers($completed), $ctx) ?? [])) : "Ish haqi ma'lumoti hali olinmagan.",
+            'sources' => $context,
         ];
 
         [$prompt, $version] = $this->prompts->render('draft_claim', $vars);
@@ -176,7 +207,7 @@ abstract class BaseAiService implements AiService
             $cost = app(BillingService::class)->chargeAi($user, 'draft_claim'); // may throw InsufficientBalance
         }
 
-        $result = $this->complete($prompt, $fallback, $masker, ['max_tokens' => 8192]);
+        $result = $this->complete($prompt, $fallback, $ctx, ['max_tokens' => 8192], [$context]);
         $analysis = $this->persist('draft_claim', $case, null, $result, $masker, $version, $sources, [
             'type' => 'draft_claim',
             'alimony' => $calc,
@@ -184,60 +215,142 @@ abstract class BaseAiService implements AiService
             'responses_used' => $completed->pluck('id')->all(),
         ], $user, $cost);
 
-        $this->audit->log(AuditAction::AiDraftClaim, $analysis, ['kind' => 'draft_claim', 'model' => $analysis->model, 'cost' => $cost], $case->id, $user);
+        $this->audit->log(AuditAction::AiDraftClaim, $analysis, ['kind' => 'draft_claim', 'model' => $analysis->model, 'cost' => $cost, 'leak_check' => $result['report']['leak_check'] ?? null], $case->id, $user);
 
         return $analysis;
     }
 
     public function askLaw(string $question): array
     {
-        $masker = new PiiMasker;
-        $masked = $masker->mask($question);
-        $sources = $this->kb->search($masked, 6);
+        $user = auth()->user();
+        $ctx = $this->contextForUser($user instanceof User ? $user : null, 'ask_law');
+        $masked = $ctx->masker->mask($question);
+        $removed = AnonymizationReport::countPlaceholders($masked);
+        $sources = $this->kb->search($masked, 6, $ctx);
+        $context = $sources->isEmpty() ? '(manbalar topilmadi)' : $this->kb->context($sources);
 
         [$prompt, $version] = $this->prompts->render('ask_law', [
             'question' => $masked,
-            'sources' => $sources->isEmpty() ? '(manbalar topilmadi)' : $this->kb->context($sources),
+            'sources' => $context,
         ]);
-        $result = $this->complete($prompt, $this->fallbackAnswer($sources), $masker, ['max_tokens' => 4096]);
+        $result = $this->complete($prompt, $this->fallbackAnswer($sources), $ctx, ['max_tokens' => 4096], $sources->isEmpty() ? [] : [$context]);
 
         return [
-            'answer' => $masker->unmask($result['text']),
+            'answer' => $ctx->masker->unmask($result['text']),
             'citations' => $this->kb->citations($sources),
             'model' => $result['model'],
             'tokens' => $result['tokens'],
             'prompt_version' => $version,
             'disclaimer' => (string) config('lexlink.ai.disclaimer'),
+            'pii_removed' => $removed !== [],
+            'sent_payload' => $result['sent'],
+            'anonymization' => $result['report'],
         ];
     }
 
-    // ------------------------------------------------------------------ helpers
+    // ------------------------------------------------------------------ anonymisation context
 
-    /** Masker pre-loaded with every person known for the case (deterministic placeholders). */
-    public function maskerFor(LegalCase $case, ?DataRequest $request = null): PiiMasker
+    /**
+     * Context pre-loaded with every person, identifier and payload value known for the case
+     * (deterministic placeholders + the leak guard's known-PII set).
+     */
+    public function contextFor(LegalCase $case, ?DataRequest $request = null, string $operation = 'ai', ?User $user = null): AnonymizationContext
     {
-        $case->loadMissing(['owner', 'legalBases', 'dataRequests']);
-        $m = new PiiMasker;
-        $m->addName($case->owner?->name);
-        $m->addName($case->client_name);
-        foreach ((array) $case->parties as $party) {
-            $m->addName(is_array($party) ? ($party['name'] ?? null) : null);
-        }
+        $case->loadMissing(['owner.advocateProfile', 'legalBases', 'dataRequests.response', 'memberships.user']);
+        $user ??= auth()->user();
+        $ctx = new AnonymizationContext(new PiiMasker, $operation, $request ?? $case, $case->id, $user instanceof User ? $user : null);
+
         $requests = $request ? collect([$request])->merge($case->dataRequests->where('id', '!=', $request->id)) : $case->dataRequests;
+        // order = placeholder numbering: case people first, then request subjects (the current request first)
+        $this->registerCase($ctx, $case, subjects: $requests);
         foreach ($requests as $r) {
-            $m->addName($r->subject_name);
-            $m->addPinfl($r->subject_pinfl);
+            $ctx->known('request_number', $r->gov_request_id);
+            if ($r->response && ! $r->response->isPurged() && is_array($payload = $r->response->payload)) {
+                $ctx->collect($payload);
+            }
+            foreach ([$r->signer, $r->creator] as $u) {
+                $this->registerUser($ctx, $u);
+            }
+        }
+        $this->registerUser($ctx, $user instanceof User ? $user : null);
+
+        return $ctx;
+    }
+
+    /** askLaw: names of the parties of the user's own cases + the user's identifiers. */
+    protected function contextForUser(?User $user, string $operation): AnonymizationContext
+    {
+        $ctx = new AnonymizationContext(new PiiMasker, $operation, null, null, $user);
+        if (! $user) {
+            return $ctx;
+        }
+        $cases = LegalCase::query()
+            ->where(fn ($q) => $q->where('owner_id', $user->id)->orWhereHas('memberships', fn ($m) => $m->where('user_id', $user->id)))
+            ->with(['legalBases', 'dataRequests', 'owner.advocateProfile'])
+            ->latest('id')->limit(100)->get();
+        foreach ($cases as $case) {
+            $this->registerCase($ctx, $case, withMembers: false);
+        }
+        $this->registerUser($ctx, $user);
+
+        return $ctx;
+    }
+
+    private function registerCase(AnonymizationContext $ctx, LegalCase $case, bool $withMembers = true, ?iterable $subjects = null): void
+    {
+        $ctx->person($case->owner?->name);
+        $ctx->person($case->client_name);
+        foreach ((array) $case->parties as $party) {
+            $name = is_array($party) ? ($party['name'] ?? null) : null;
+            AnonymizationContext::looksLikeOrganization((string) $name) ? $ctx->organization('KORXONA', $name) : $ctx->person($name);
+            if (is_array($party)) {
+                $ctx->collect(array_diff_key($party, ['name' => 1, 'role' => 1]));
+            }
+        }
+        foreach ($subjects ?? $case->dataRequests as $r) {
+            $ctx->person($r->subject_name);
+            $ctx->pinfl($r->subject_pinfl);
+            $ctx->known('masked_id', $r->subject_pinfl_masked);
+        }
+        $this->registerUser($ctx, $case->owner);
+        if ($withMembers) {
+            foreach ($case->memberships as $m) {
+                $this->registerUser($ctx, $m->user);
+            }
+        }
+        if ($case->court_case_number) {
+            $ctx->identifier('ISH', 'case_number', $case->court_case_number);
         }
         foreach ($case->legalBases as $b) {
-            $m->addName($b->subject_name);
-            $m->addPinfl($b->subject_pinfl);
+            $ctx->person($b->subject_name);
+            $ctx->pinfl($b->subject_pinfl);
+            if ($b->number) {
+                $ctx->identifier($b->type === LegalBasisType::CourtDecision ? 'QAROR' : 'ORDER', 'decision_number', $b->number);
+            }
+            if (is_array($b->verification_payload)) {
+                $ctx->collect($b->verification_payload);
+            }
         }
-        if ($request?->signer) {
-            $m->addName($request->signer->name);
-        }
-
-        return $m;
     }
+
+    private function registerUser(AnonymizationContext $ctx, ?User $u): void
+    {
+        if (! $u) {
+            return;
+        }
+        $ctx->person($u->name);
+        $ctx->known('phone', $u->phone);
+        $ctx->known('email', $u->email);
+        $ctx->pinfl($u->pinfl ?? null);
+        if ($license = $u->advocateProfile?->license_number) {
+            $ctx->known('license', $license);
+        }
+        if ($bureau = $u->advocateProfile?->bureau_name) {
+            $ctx->organization('KORXONA', $bureau);
+        }
+    }
+
+    // ------------------------------------------------------------------ helpers
 
     /** Persist an analysis: output stays masked; structured._pii holds the display map (names, masked ids only). */
     protected function persist(string $kind, LegalCase $case, ?DataRequest $request, array $result, PiiMasker $masker, string $version, iterable $sources, array $structured, ?User $user = null, int $cost = 0): AiAnalysis
@@ -255,6 +368,8 @@ abstract class BaseAiService implements AiService
             'model' => mb_substr($result['model'], 0, 64),
             'prompt_version' => $version,
             'output' => $result['text'],
+            'sent_payload' => $result['sent'] ?? null,
+            'anonymization_report' => $result['report'] ?? AnonymizationReport::notCalled(),
             'structured' => $structured,
             'citations' => $this->kb->citations($sources),
             'tokens' => $result['tokens'],
@@ -263,7 +378,7 @@ abstract class BaseAiService implements AiService
     }
 
     /**
-     * Deterministic legal refs first, then RAG hits for $query (deduplicated).
+     * Deterministic legal refs first, then RAG hits for $query (deduplicated). $query is a static, public string.
      *
      * @param  list<array{0: string, 1: string}>  $refs
      */
@@ -290,16 +405,17 @@ abstract class BaseAiService implements AiService
         return (array) ($response->summary ?? []);
     }
 
-    protected function requestFacts(DataRequest $r, PiiMasker $m): string
+    protected function requestFacts(DataRequest $r, AnonymizationContext $ctx): string
     {
+        $m = $ctx->masker;
         $case = $r->legalCase;
         $lines = [
-            "Ish: {$m->mask($case->title)}".($case->court_case_number ? " (sud ishi № {$case->court_case_number})" : '').($case->category ? ", toifa: {$case->category}" : ''),
+            "Ish: {$m->mask($case->title)}".($case->court_case_number ? ' (sud ishi № '.$ctx->identifier('ISH', 'case_number', $case->court_case_number).')' : '').($case->category ? ", toifa: {$m->mask($case->category)}" : ''),
             "Mijoz (advokat himoyasidagi shaxs): {$m->mask($case->client_name)}",
             "So'rov turi: {$r->type->label()}; idora: {$r->type->agency()}; rejim: {$r->type->secrecyRegime()}",
-            'Subyekt: '.$m->mask($r->subject_name ?: '[___]').', JShShIR '.$this->subjectPinflPlaceholder($m, $r),
+            'Subyekt: '.$m->mask($r->subject_name ?: '[___]').', JShShIR '.$this->subjectPinflPlaceholder($ctx, $r),
             'Davr: '.$this->periodText($r->params ?? []),
-            'Huquqiy asos: '.$this->basisText($r),
+            'Huquqiy asos: '.$this->basisText($r, $ctx),
         ];
         if ($r->purpose) {
             $lines[] = 'Maqsad: '.$m->mask($r->purpose);
@@ -311,10 +427,11 @@ abstract class BaseAiService implements AiService
         return implode("\n", $lines);
     }
 
-    protected function caseFacts(LegalCase $case, PiiMasker $m): string
+    protected function caseFacts(LegalCase $case, AnonymizationContext $ctx): string
     {
+        $m = $ctx->masker;
         $lines = [
-            "Ish: {$m->mask($case->title)}".($case->court_case_number ? " (sud ishi № {$case->court_case_number})" : ''),
+            "Ish: {$m->mask($case->title)}".($case->court_case_number ? ' (sud ishi № '.$ctx->identifier('ISH', 'case_number', $case->court_case_number).')' : ''),
             "Da'vogar (mijoz): {$m->mask($case->client_name)}",
         ];
         foreach ((array) $case->parties as $p) {
@@ -326,20 +443,25 @@ abstract class BaseAiService implements AiService
             $lines[] = 'Ish tavsifi: '.$m->mask(mb_substr($case->description, 0, 2000));
         }
         foreach ($case->legalBases as $b) {
-            $lines[] = "Huquqiy asos: {$b->type?->label()} № {$b->number}".($b->court_name ? ", {$b->court_name}" : '').($b->issued_at ? ', '.$b->issued_at->toDateString() : '');
+            $lines[] = 'Huquqiy asos: '.$this->basisLine($b, $ctx);
         }
 
         return implode("\n", $lines);
     }
 
-    protected function basisText(DataRequest $r): string
+    protected function basisText(DataRequest $r, AnonymizationContext $ctx): string
     {
-        $b = $r->legalBasis;
-        if (! $b) {
-            return '[huquqiy asos koʻrsatilmagan]';
-        }
+        return $r->legalBasis ? $this->basisLine($r->legalBasis, $ctx) : '[huquqiy asos koʻrsatilmagan]';
+    }
 
-        return trim("{$b->type?->label()} № {$b->number}".($b->issued_at ? ' ('.$b->issued_at->format('d.m.Y').')' : '').($b->court_name ? ", {$b->court_name}" : ''));
+    /** "Sud qarori / ajrimi № [QAROR_1] (10.11.2026), [SUD_1]" — number and court are restored only locally. */
+    protected function basisLine($b, AnonymizationContext $ctx): string
+    {
+        $number = $b->number ? $ctx->identifier($b->type === LegalBasisType::CourtDecision ? 'QAROR' : 'ORDER', 'decision_number', $b->number) : '[___]';
+        $date = $b->issued_at ? ' ('.$b->issued_at->format('d.m.Y').')' : '';
+        $court = $b->court_name ? ', '.$ctx->identifier('SUD', 'court_name', $b->court_name) : '';
+
+        return trim("{$b->type?->label()} № {$number}{$date}{$court}");
     }
 
     protected function periodText(array $params): string
@@ -350,9 +472,9 @@ abstract class BaseAiService implements AiService
         return $from || $to ? trim(($from ?? '…').' — '.($to ?? '…')) : 'koʻrsatilmagan';
     }
 
-    protected function subjectPinflPlaceholder(PiiMasker $m, DataRequest $r): string
+    protected function subjectPinflPlaceholder(AnonymizationContext $ctx, DataRequest $r): string
     {
-        return $m->addPinfl($r->subject_pinfl) ?? ($r->subject_pinfl_masked ? $m->mask($r->subject_pinfl_masked) : '[___]');
+        return $ctx->pinfl($r->subject_pinfl) ?? ($r->subject_pinfl_masked ? $ctx->masker->mask($r->subject_pinfl_masked) : '[___]');
     }
 
     protected function advocateFor(DataRequest $r): ?User
@@ -378,6 +500,10 @@ abstract class BaseAiService implements AiService
             DataRequestType::Property => 'shaxsga tegishli koʻchmas mulk obyektlari (kadastr raqami, turi, maydoni, ulushi, taqiq va garovlar) toʻgʻrisidagi maʼlumotlar',
             DataRequestType::Vehicle => 'shaxs nomida roʻyxatda turgan avtotransport vositalari (rusumi, yili, davlat raqami, garov holati) toʻgʻrisidagi maʼlumotlar',
             DataRequestType::CourtCase => 'sud ishining holati, taraflari va qabul qilingan sud hujjatlari toʻgʻrisidagi maʼlumotlar',
+            DataRequestType::TaxInfo => 'soliq toʻlovchining STIR, soliq rejimi, QQS toʻlovchi sifatida hisobda turishi, toʻlangan soliqlar va soliq qarzi summalari, YaTT holati va yuridik shaxslardagi ishtiroki (Soliq kodeksi 29-moddasiga koʻra soliq siri hisoblanmaydigan) toʻgʻrisidagi maʼlumotlar',
+            DataRequestType::BusinessShares => 'shaxs ishtirokchi boʻlgan yuridik shaxslar (nomi, STIR, ustav fondidagi ulushi, faoliyat holati) toʻgʻrisidagi maʼlumotlar',
+            DataRequestType::BankAccounts => 'shaxsning banklardagi hisobvaraqlari, qoldiqlari, davr boʻyicha aylanmalari va hisobvaraqlarga qoʻyilgan cheklovlar toʻgʻrisidagi maʼlumotlar (bank siri)',
+            DataRequestType::BorderCrossing => 'shaxsning Oʻzbekiston Respublikasi davlat chegarasidan oʻtganligi (chiqish/kirish sanalari, davlat, oʻtish punkti) toʻgʻrisidagi maʼlumotlar',
         };
     }
 
@@ -410,6 +536,26 @@ abstract class BaseAiService implements AiService
                 [['fuqarolik-protsessual-kodeksi', '451']],
                 'sud hal qiluv qarori shikoyat muddati ijro',
             ],
+            DataRequestType::TaxInfo => [
+                'soliq qarzi, YaTT faoliyati (qoʻshimcha daromad manbai) va yuridik shaxslardagi ishtirok aliment/qarz undiruvi uchun nimani anglatishini baholang.',
+                [['soliq-kodeksi', '29']],
+                'daromad undiruv qaratish',
+            ],
+            DataRequestType::BusinessShares => [
+                'yuridik shaxslardagi ulush undiruv qaratilishi mumkin boʻlgan mol-mulk ekanini va daʼvoni taʼminlash tartibida ulushga xatlov qoʻyish imkoniyatini baholang.',
+                [['fuqarolik-protsessual-kodeksi', '105'], ['soliq-kodeksi', '29']],
+                'ulushga undiruv qaratish xatlov',
+            ],
+            DataRequestType::BankAccounts => [
+                'hisobvaraqlardagi mablagʻlarga undiruv qaratish yoki daʼvoni taʼminlash tartibida xatlov qoʻyish imkoniyatini baholang; mavjud cheklovlarni koʻrsating. Maʼlumot bank siri — faqat ish maqsadida foydalaning.',
+                [['bank-siri', '10'], ['fuqarolik-protsessual-kodeksi', '105']],
+                'pul mablagʻlariga xatlov qoʻyish',
+            ],
+            DataRequestType::BorderCrossing => [
+                'qarzdorning chet elda boʻlishi aliment/qarz ijrosiga qanday taʼsir qilishini va ijro ishi doirasida chet elga chiqishni vaqtincha cheklash masalasini koʻrib chiqish mumkinligini taklif sifatida baholang.',
+                [['shaxsga-doir-malumotlar', '25']],
+                'chet elga chiqishni vaqtincha cheklash ijro',
+            ],
             DataRequestType::Salary => ['', [], ''],
         };
     }
@@ -435,11 +581,17 @@ abstract class BaseAiService implements AiService
                     'encumbrances' => ! empty($v['pledge']) ? [is_string($v['pledge']) ? $v['pledge'] : 'garov'] : [],
                 ])->all(),
             ],
+            DataRequestType::BankAccounts => [
+                'count' => count($data['accounts'] ?? []),
+                'encumbered' => collect($data['accounts'] ?? [])->filter(fn ($a) => ! empty($a['restrictions']))->count(),
+            ],
+            DataRequestType::BusinessShares => ['count' => count($data['companies'] ?? [])],
+            DataRequestType::BorderCrossing => ['count' => count($data['crossings'] ?? [])],
             default => ['count' => $data === [] ? 0 : 1],
         };
     }
 
-    protected function claimAttachments(Collection $completed): array
+    protected function claimAttachments(Collection $completed, AnonymizationContext $ctx): array
     {
         $items = [
             'Daʼvo arizasining javobgar uchun nusxasi',
@@ -448,7 +600,9 @@ abstract class BaseAiService implements AiService
             'Advokat orderi',
         ];
         foreach ($completed as $r) {
-            $items[] = "{$r->type->label()} boʻyicha {$r->type->agency()} javobi (LexLink soʻrovi № {$r->id}".($r->completed_at ? ', '.$r->completed_at->format('d.m.Y') : '').')';
+            // the request id is a restorable placeholder: the AI never sees it, the advocate does
+            $items[] = "{$r->type->label()} boʻyicha {$r->type->agency()} javobi (LexLink soʻrovi № ".$ctx->masker->alias('SOROV', (string) $r->id)
+                .($r->completed_at ? ', '.$r->completed_at->format('d.m.Y') : '').')';
         }
         $items[] = 'Davlat boji boʻyicha hujjat (agar talab qilinsa)';
 
@@ -468,13 +622,6 @@ abstract class BaseAiService implements AiService
             'variantlar' => array_map(fn ($o) => ['bolalar' => $o['label'], 'ulush' => $o['share'], 'ulush_boyicha' => $o['by_share'], 'aliment' => $o['amount'], 'eng_kam_qollandi' => $o['floor_applied']], $calc['options']),
             'tanlangan' => $calc['selected'] ? ['bolalar' => $calc['selected']['children'], 'ulush' => $calc['selected']['share'], 'aliment' => $calc['selected']['amount']] : null,
         ];
-    }
-
-    protected function trimSalaryPayload(array $data): array
-    {
-        unset($data['months']); // per-month rows are summarised by the calculator; employers + totals are enough for the model
-
-        return $data;
     }
 
     protected function json(array $data): string
@@ -508,9 +655,13 @@ abstract class BaseAiService implements AiService
     {
         $agency = $type->agency();
         $refs = $this->refList($sources);
-        $secrecy = $type === DataRequestType::Salary
-            ? "\nSoʻralayotgan maʼlumotlar soliq sirini tashkil etishi sababli soʻrov sud qarori asosida yuborilmoqda (Soliq kodeksi 29-modda)."
-            : '';
+        $secrecy = match ($type) {
+            DataRequestType::Salary => "\nSoʻralayotgan maʼlumotlar soliq sirini tashkil etishi sababli soʻrov sud qarori asosida yuborilmoqda (Soliq kodeksi 29-modda).",
+            DataRequestType::BankAccounts => "\nSoʻralayotgan maʼlumotlar bank sirini tashkil etishi sababli soʻrov sud ajrimi asosida yuborilmoqda (Bank siri toʻgʻrisidagi Qonun 10-modda).",
+            DataRequestType::BorderCrossing => "\nSoʻralayotgan maʼlumotlar shaxsiy hayotga oid maxsus maʼlumot boʻlgani sababli soʻrov sud ajrimi asosida yuborilmoqda (Shaxsga doir maʼlumotlar toʻgʻrisidagi Qonun 25-modda).",
+            DataRequestType::TaxInfo, DataRequestType::BusinessShares => "\nSoʻralayotgan maʼlumotlar Soliq kodeksi 29-moddasiga koʻra soliq sirini tashkil etmaydi.",
+            default => '',
+        };
 
         return <<<TXT
         {$agency}ga
@@ -581,6 +732,115 @@ abstract class BaseAiService implements AiService
             ."\n\n**Keyingi qadam.** Daʼvo arizasida daʼvoni taʼminlash chorasi sifatida ushbu mol-mulkka xatlov qoʻyishni soʻrang.";
     }
 
+    /** Types that reveal assets the claim may ask to attach (undiruv / da'voni ta'minlash). */
+    protected const ASSET_TYPES = [DataRequestType::Property, DataRequestType::Vehicle, DataRequestType::BankAccounts, DataRequestType::BusinessShares];
+
+    protected function secrecyHint(DataRequestType $type): string
+    {
+        return match ($type) {
+            DataRequestType::Salary => ', soliq siri rejimi va sud qarori asosida berish',
+            DataRequestType::BankAccounts => ', bank siri rejimi va sud ajrimi asosida berish (Bank siri toʻgʻrisidagi Qonun 10-modda)',
+            DataRequestType::BorderCrossing => ', shaxsiy hayotga oid maxsus maʼlumot va sud ajrimi asosida berish',
+            default => '',
+        };
+    }
+
+    /**
+     * PHP-computed figures for the domain types (ResponseSummarizer) — never computed by the model.
+     * Prefers the stored summary (survives purge).
+     */
+    protected function domainNumbers(DataRequest $request, array $data): ?array
+    {
+        if (! in_array($request->type, [DataRequestType::TaxInfo, DataRequestType::BusinessShares, DataRequestType::BankAccounts, DataRequestType::BorderCrossing], true)) {
+            return null;
+        }
+        $summary = (array) ($request->response?->summary ?? []);
+        if (($summary['type'] ?? null) === $request->type->value) {
+            return $summary;
+        }
+
+        return app(ResponseSummarizer::class)->summarize($request->type, ['data' => $data]);
+    }
+
+    protected function fallbackDomainSummary(DataRequestType $type, array $n, array $data): string
+    {
+        $tail = "\n\n_Bu tahlil taklif xarakterida; yakuniy huquqiy baho advokat zimmasida._";
+
+        return match ($type) {
+            DataRequestType::BankAccounts => $this->bankSummary($n).$tail,
+            DataRequestType::BorderCrossing => $this->borderSummary($n).$tail,
+            DataRequestType::BusinessShares => ($n['companies_count'] ?? 0) === 0
+                ? '**Xulosa.** Subyekt yuridik shaxslarda ishtirokchi sifatida qayd etilmagan.'.$tail
+                : "**Xulosa.** Subyekt {$n['companies_count']} ta yuridik shaxsda ishtirokchi (faol: {$n['active_count']}). Ulushlarning nominal qiymati jami: **".self::money((int) $n['total_share_value']).'** (ustav fondi × ulush, PHPda hisoblangan).'
+                    ."\n\n**Ish uchun ahamiyati.** Yuridik shaxsdagi ulush undiruv qaratilishi mumkin boʻlgan mol-mulk hisoblanadi — daʼvoni taʼminlash tartibida ulushga xatlov qoʻyishni soʻrash masalasini koʻrib chiqish mumkin.".$tail,
+            DataRequestType::TaxInfo => '**Xulosa.** Soliq rejimi: '.($n['tax_regime'] ?? '—').'; QQS toʻlovchi: '.(! empty($n['vat_payer']) ? 'ha' : 'yoʻq').'; YaTT: '.(! empty($n['is_individual_entrepreneur']) ? 'ha'.(! empty($n['ie_activity']) ? " ({$n['ie_activity']})" : '') : 'yoʻq').'.'
+                ."\nSoliq qarzi: **".self::money((int) ($n['tax_debt'] ?? 0)).'**; oʻtgan yili toʻlangan soliqlar: '.self::money((int) ($n['taxes_paid_last_year'] ?? 0)).'; yuridik shaxslardagi ishtirok: '.((int) ($n['participations_count'] ?? 0)).' ta.'
+                .(! empty($n['participations_count']) ? "\n\n**Keyingi qadam.** Ulushlar boʻyicha batafsil maʼlumot uchun «Yuridik shaxslardagi ulushlar» soʻrovini yuborish mumkin." : '')
+                .(! empty($n['is_individual_entrepreneur']) ? "\n\nYaTT faoliyati qoʻshimcha daromad manbai boʻlishi mumkin — aliment hisobida inobatga olishni koʻrib chiqing." : '').$tail,
+            default => '',
+        };
+    }
+
+    protected function bankSummary(array $n): string
+    {
+        if (($n['accounts_count'] ?? 0) === 0) {
+            return '**Xulosa.** Subyekt nomida bank hisobvaragʻi topilmadi.';
+        }
+        $totals = collect($n['totals_by_currency'] ?? [])->map(fn ($t, $cur) => ($cur === 'UZS' ? self::money((int) $t['balance']) : number_format((int) $t['balance'], 0, ',', ' ')." {$cur}")." ({$t['accounts']} ta hisobvaraq; {$n['turnover_months']} oyda kirim ".number_format((int) $t['turnover_in'], 0, ',', ' ').')')->values()->implode('; ');
+
+        return "**Xulosa.** {$n['banks_count']} ta bankda {$n['accounts_count']} ta hisobvaraq aniqlandi. Qoldiq valyutalar boʻyicha: **{$totals}** (PHPda hisoblangan)."
+            .(($n['restricted_count'] ?? 0) > 0 ? " {$n['restricted_count']} ta hisobvaraqqa allaqachon cheklov qoʻyilgan." : '')
+            ."\n\n**Ish uchun ahamiyati.** Hisobvaraqlardagi mablagʻlarga daʼvoni taʼminlash tartibida xatlov qoʻyish yoki ijro ishi doirasida undiruv qaratish masalasini koʻrib chiqish mumkin. Maʼlumot bank siri — faqat ushbu ish doirasida foydalaning.";
+    }
+
+    protected function borderSummary(array $n): string
+    {
+        if (($n['crossings_count'] ?? 0) === 0) {
+            return '**Xulosa.** Koʻrsatilgan davrda chegaradan oʻtish qayd etilmagan.';
+        }
+        $head = "**Xulosa.** {$n['crossings_count']} ta chegaradan oʻtish qayd etilgan; soʻnggi 12 oyda chet elda jami **{$n['days_abroad_last_12m']} kun**.";
+        if (! empty($n['currently_abroad'])) {
+            return $head."\n\nQarzdor **{$n['last_exit_date']} dan beri chet elda ({$n['last_exit_country']})** — {$n['days_abroad_current']} kun, qaytib kirgani qayd etilmagan."
+                ."\n\n**Ish uchun ahamiyati.** Ijro ishi boʻyicha chet elga chiqishni vaqtincha cheklash masalasini koʻrib chiqish, shuningdek undiruvni mamlakatdagi mol-mulk va hisobvaraqlarga qaratish mumkin.";
+        }
+
+        return $head.' Hozirda subyekt mamlakatda (soʻnggi qayd — kirish).';
+    }
+
+    /** PHP numbers about assets for the claim prompt. */
+    protected function claimAssetNumbers(Collection $completed): array
+    {
+        $out = [];
+        foreach ($completed as $r) {
+            if (in_array($r->type, [DataRequestType::BankAccounts, DataRequestType::BusinessShares, DataRequestType::BorderCrossing], true)) {
+                $out['aktivlar_'.$r->type->value] = $this->domainNumbers($r, $this->responseData($r));
+            }
+        }
+
+        return $out;
+    }
+
+    protected function claimAssetLine(Collection $completed): string
+    {
+        if (! $completed->contains(fn ($r) => in_array($r->type, self::ASSET_TYPES, true))) {
+            return '';
+        }
+        $what = [];
+        foreach ($completed as $r) {
+            $n = $this->domainNumbers($r, $this->responseData($r)) ?? [];
+            if ($r->type === DataRequestType::BankAccounts && ($n['accounts_count'] ?? 0) > 0) {
+                $uzs = (int) ($n['totals_by_currency']['UZS']['balance'] ?? 0);
+                $what[] = "bank hisobvaraqlaridagi pul mablagʻlari ({$n['accounts_count']} ta hisobvaraq".($uzs ? ', qoldiq '.self::money($uzs) : '').')';
+            } elseif ($r->type === DataRequestType::BusinessShares && ($n['companies_count'] ?? 0) > 0) {
+                $what[] = 'yuridik shaxslardagi ulushlar (nominal qiymati '.self::money((int) $n['total_share_value']).')';
+            } elseif (in_array($r->type, [DataRequestType::Property, DataRequestType::Vehicle], true)) {
+                $what[] = $r->type === DataRequestType::Property ? 'koʻchmas mulk' : 'avtotransport vositalari';
+            }
+        }
+
+        return "\n4. Daʼvoni taʼminlash maqsadida javobgarga tegishli mol-mulkka".($what ? ' — '.implode(', ', array_unique($what)) : '').' — xatlov qoʻyish (FPK).';
+    }
+
     protected function fallbackClaim(array $v, ?array $calc, ?int $children, Collection $completed, Collection $sources): string
     {
         $income = $calc
@@ -590,9 +850,7 @@ abstract class BaseAiService implements AiService
         $amount = $sel
             ? "{$sel['share']} qismi miqdorida (taxminan oyiga ".self::money($sel['amount']).')'
             : '[___] qismi miqdorida';
-        $assets = $completed->filter(fn ($r) => in_array($r->type, [DataRequestType::Property, DataRequestType::Vehicle], true))->isNotEmpty()
-            ? "\n4. Daʼvoni taʼminlash maqsadida javobgarga tegishli mol-mulkka xatlov qoʻyish (FPK)."
-            : '';
+        $assets = $this->claimAssetLine($completed);
         $attachments = implode("\n", array_map(fn ($a, $i) => ($i + 1).". {$a}", explode('; ', $v['attachments']), array_keys(explode('; ', $v['attachments']))));
         $refs = $this->refList($sources);
         $date = now()->format('d.m.Y');

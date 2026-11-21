@@ -83,6 +83,19 @@ class MockGovProvider implements GovDataProvider
         return $json;
     }
 
+    public function advocateOrder(string $number): ?array
+    {
+        return $this->lookup('advocate-orders/'.rawurlencode(strtoupper(trim($number))));
+    }
+
+    public function issueAdvocateOrder(array $data): array
+    {
+        $response = $this->send(fn () => $this->client()->post('advocate-orders', $data));
+        $this->ensureOk($response, 'Elektron order');
+
+        return $response->json();
+    }
+
     private function fetchRequest(string $requestId): array
     {
         $response = $this->send(fn () => $this->client()->get('requests/'.rawurlencode($requestId)));

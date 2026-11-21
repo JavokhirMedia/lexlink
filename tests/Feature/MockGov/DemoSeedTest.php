@@ -22,11 +22,13 @@ class DemoSeedTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertDatabaseCount('mock_persons', 30);
-        $this->assertDatabaseCount('mock_court_decisions', 10);
+        $this->assertDatabaseCount('mock_court_decisions', 11);
+        $this->assertDatabaseHas('mock_court_decisions', ['number' => MockGovSeeder::DEMO_DECISION_2]);
+        $this->assertDatabaseCount('mock_tax_profiles', 30);
         $this->assertDatabaseCount('mock_court_cases', 15);
         $this->assertDatabaseCount('mock_advocate_licenses', 5);
         $this->assertDatabaseCount('plans', 3);
-        $this->assertDatabaseCount('users', 4);
+        $this->assertDatabaseCount('users', 5); // + Karimova N. (client, AdvocateOrdersSeeder)
 
         $advocate = User::where('pinfl_hash', Pinfl::hash(MockGovSeeder::ADVOCATE))->firstOrFail();
         $this->assertTrue($advocate->hasActiveLicense());

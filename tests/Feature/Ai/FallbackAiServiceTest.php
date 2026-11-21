@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\AiAnalysisPresenter;
 use App\Services\Ai\AiService;
 use App\Services\BillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,8 +53,12 @@ class FallbackAiServiceTest extends TestCase
         $claim = app(AiService::class)->draftClaim($case, ['user' => $advocate, 'court' => 'Yunusobod tumanlararo fuqarolik ishlari boʻyicha sudi']);
 
         Http::assertNothingSent();
+        $this->assertNull($claim->sent_payload);
+        $this->assertFalse($claim->anonymization_report['ai_called']);
+        $this->assertStringContainsString('AI chaqirilmadi', $claim->anonymization_report['note']);
+        $output = AiAnalysisPresenter::present($claim)['output']; // stored output stays masked ([SUD_1]); restored for display
         foreach (['Yunusobod tumanlararo', 'Daʼvogar:', 'Javobgar:', 'DAʼVO ARIZASI', 'Daʼvo mazmuni', 'Huquqiy asoslar', 'SOʻRAYMAN', 'Ilovalar', '1/3'] as $part) {
-            $this->assertStringContainsString($part, $claim->output);
+            $this->assertStringContainsString($part, $output);
         }
     }
 

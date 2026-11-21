@@ -25,10 +25,17 @@ enum AuditAction: string
     case DownloadPdf = 'download_pdf';
     case AiAnalysis = 'ai_analysis';
     case AiDraftClaim = 'ai_draft_claim';
+    case AiPiiBlocked = 'ai_pii_blocked'; // anonymisation leak guard stopped an outgoing AI request
     case WalletTopup = 'wallet_topup';
     case Charge = 'charge';
     case Refund = 'refund';
     case ResponsePurged = 'response_purged';
+    case AdvocateOrderIssued = 'advocate_order_issued';
+    case ClientLinkCreated = 'client_link_created';
+    case ClientLinkRevoked = 'client_link_revoked';
+    case ClientAccessGranted = 'client_access_granted';
+    case ClientAccessDenied = 'client_access_denied';
+    case ClientViewed = 'client_viewed';
 
     public function label(): string
     {
@@ -54,10 +61,17 @@ enum AuditAction: string
             self::DownloadPdf => 'PDF yuklab olindi',
             self::AiAnalysis => 'AI tahlil',
             self::AiDraftClaim => "AI da'vo arizasi loyihasi",
+            self::AiPiiBlocked => "AI so'rovi bloklandi (shaxsiy ma'lumot aniqlandi)",
             self::WalletTopup => "Balans to'ldirildi",
             self::Charge => 'Balansdan yechildi',
             self::Refund => 'Mablag\' qaytarildi',
             self::ResponsePurged => "Javob muddati tugab o'chirildi",
+            self::AdvocateOrderIssued => 'Elektron advokat orderi berildi',
+            self::ClientLinkCreated => 'Mijoz uchun kirish havolasi yaratildi',
+            self::ClientLinkRevoked => 'Mijoz havolasi bekor qilindi',
+            self::ClientAccessGranted => 'Mijozga ish holatini ko\'rish ruxsati berildi',
+            self::ClientAccessDenied => 'Mijoz kirishi rad etildi',
+            self::ClientViewed => "Mijoz ish holatini ko'rdi",
         };
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\LawChunk;
+use App\Services\Ai\Anonymization\AnonymizationGateway;
 use App\Services\Ai\GeminiClient;
 use App\Services\Ai\LawKnowledgeBase;
 use Illuminate\Console\Command;
@@ -19,7 +20,7 @@ class LexEmbedCommand extends Command
 
     protected $description = 'Embed lex.uz law chunks with Gemini embeddings (RAG)';
 
-    public function handle(GeminiClient $gemini, LawKnowledgeBase $kb): int
+    public function handle(GeminiClient $gemini, LawKnowledgeBase $kb, AnonymizationGateway $gateway): int
     {
         if (! $gemini->enabled()) {
             $this->warn("GEMINI_API_KEY yo'q — embedding o'tkazib yuborildi. Qidiruv kalit so'zlar bo'yicha ishlaydi.");
@@ -44,10 +45,11 @@ class LexEmbedCommand extends Command
         $batch = max(1, min(100, (int) $this->option('batch')));
         $failed = 0;
 
-        $query->chunkById($batch, function ($chunks) use ($gemini, $bar, &$failed) {
+        $query->chunkById($batch, function ($chunks) use ($gemini, $gateway, $bar, &$failed) {
             $texts = $chunks->map(fn (LawChunk $c) => ($c->document?->title ?? '')."\n".$c->content)->all();
             try {
-                $vectors = $gemini->embed(array_values($texts));
+                // law text is public (not PII) but still goes through the gateway's context-free leak scan
+                $vectors = $gemini->embed($gateway->publicText(array_values($texts)));
             } catch (Throwable $e) {
                 $failed += $chunks->count();
                 $this->newLine();

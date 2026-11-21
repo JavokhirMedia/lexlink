@@ -6,6 +6,8 @@ export type RequestTypeOption = {
     agency: string;
     secrecy_regime: string;
     accepted_bases: { value: string; label: string }[];
+    access?: "order" | "court";
+    domain?: string | null;
 };
 
 export type BasisCheck = {
@@ -77,8 +79,67 @@ export type CourtCaseSummary = {
     decisions_count: number;
     next_hearing: string | null;
 };
+export type TaxInfoSummary = {
+    type: "tax_info";
+    tin_present: boolean;
+    tax_regime: string | null;
+    vat_payer: boolean;
+    is_individual_entrepreneur: boolean;
+    ie_activity: string | null;
+    tax_debt: number;
+    taxes_paid_last_year: number;
+    participations_count: number;
+};
+export type BusinessSharesSummary = {
+    type: "business_shares";
+    companies_count: number;
+    active_count: number;
+    total_share_value: number;
+    largest_share_percent: number | null;
+};
+export type CurrencyTotals = {
+    balance: number;
+    turnover_in: number;
+    turnover_out: number;
+    accounts: number;
+};
+export type BankAccountsSummary = {
+    type: "bank_accounts";
+    accounts_count: number;
+    banks_count: number;
+    totals_by_currency: Record<string, CurrencyTotals>;
+    restricted_count: number;
+    turnover_months: number;
+};
+export type BorderCrossingSummary = {
+    type: "border_crossing";
+    crossings_count: number;
+    exits_count: number;
+    currently_abroad: boolean;
+    last_exit_date: string | null;
+    last_exit_country: string | null;
+    days_abroad_current: number;
+    days_abroad_last_12m: number;
+    countries: string[];
+};
 export type ResponseSummary =
-    SalarySummary | PropertySummary | VehicleSummary | CourtCaseSummary;
+    | SalarySummary
+    | PropertySummary
+    | VehicleSummary
+    | CourtCaseSummary
+    | TaxInfoSummary
+    | BusinessSharesSummary
+    | BankAccountsSummary
+    | BorderCrossingSummary;
+
+const amountFmt = new Intl.NumberFormat("uz-UZ", { maximumFractionDigits: 0 });
+
+/** 18436500, "UZS" -> "18 436 500 so'm"; 2350, "USD" -> "2 350 USD" */
+export function formatCurrency(amount: number, currency: string): string {
+    return currency === "UZS"
+        ? `${amountFmt.format(amount)} so'm`
+        : `${amountFmt.format(amount)} ${currency}`;
+}
 
 export type ResponseMeta = {
     received_at: string | null;

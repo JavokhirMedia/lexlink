@@ -33,6 +33,16 @@ class RequestTextTemplate
                 $subject, ! empty($r->params['cadastral_number']) ? ' (kadastr raqami: '.$r->params['cadastral_number'].')' : ''
             ),
             DataRequestType::Vehicle => "{$subject} shaxs nomida ro'yxatdan o'tgan avtotransport vositalari va ularning garov holati to'g'risidagi ma'lumotlarni",
+            DataRequestType::TaxInfo => "{$subject} shaxsning soliq to'lovchi identifikatsiya raqami, qo'llaniladigan soliq rejimi, QQS to'lovchi sifatida hisobda turishi, to'langan soliqlar va soliq qarzi summalari, YaTT holati hamda yuridik shaxslardagi ishtiroki to'g'risidagi (Soliq kodeksi 29-moddasiga ko'ra soliq siri hisoblanmaydigan) ma'lumotlarni",
+            DataRequestType::BusinessShares => "{$subject} shaxs ishtirokchi (ta'sischi) bo'lgan yuridik shaxslar, ularning ustav fondidagi ulushi va faoliyat holati to'g'risidagi ma'lumotlarni",
+            DataRequestType::BankAccounts => sprintf(
+                "%s shaxsning banklardagi hisobvaraqlari, ulardagi qoldiq, %s davrdagi aylanmalar hamda hisobvaraqlarga qo'yilgan cheklovlar to'g'risidagi (bank siri — sud ajrimi asosida) ma'lumotlarni",
+                $subject, $this->period($r)
+            ),
+            DataRequestType::BorderCrossing => sprintf(
+                "%s shaxsning %s davrda O'zbekiston Respublikasi davlat chegarasidan o'tganligi (chiqish/kirish sanalari, davlat, o'tish punkti) to'g'risidagi (sud ajrimi asosida) ma'lumotlarni",
+                $subject, $this->period($r)
+            ),
             DataRequestType::CourtCase => sprintf(
                 "%s shaxs ishtirokidagi sud ishi%s holati, sud majlislari va qabul qilingan qarorlar to'g'risidagi ma'lumotlarni",
                 $subject, ! empty($r->params['court_case_number']) ? ' (ish raqami: '.$r->params['court_case_number'].')' : ''
@@ -67,5 +77,13 @@ class RequestTextTemplate
         ];
 
         return trim(implode("\n", $lines));
+    }
+
+    private function period(DataRequest $r): string
+    {
+        $from = $r->params['period_from'] ?? null;
+        $to = $r->params['period_to'] ?? null;
+
+        return $from || $to ? ($from ?? '…').' – '.($to ?? '…') : "so'nggi 12 oy";
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MockGov\AdvocateOrderController;
 use App\Http\Controllers\MockGov\OneIdController;
 use App\Http\Controllers\MockGov\RegistryController;
 use App\Http\Controllers\MockGov\RequestController;
@@ -26,4 +27,6 @@ Route::middleware(RequireMockGovApiKey::class)->group(function () {
     Route::get('court/cases/{number}', [RegistryController::class, 'courtCase'])->where('number', '.+')->name('court.cases.show');
     Route::post('requests', [RequestController::class, 'store'])->name('requests.store');
     Route::get('requests/{id}', [RequestController::class, 'show'])->name('requests.show');
+    Route::get('advocate-orders/{number}', [AdvocateOrderController::class, 'show'])->name('advocate-orders.show');
+    Route::post('advocate-orders', [AdvocateOrderController::class, 'store'])->name('advocate-orders.store');
 });

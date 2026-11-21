@@ -13,7 +13,7 @@ class LegalBasis extends Model
 {
     protected $table = 'legal_bases';
 
-    protected $fillable = ['case_id', 'created_by', 'type', 'number', 'issued_at', 'expires_at', 'subject_pinfl', 'subject_name', 'court_name', 'allowed_types', 'file_path', 'verification_status', 'verification_payload', 'verified_at'];
+    protected $fillable = ['case_id', 'created_by', 'type', 'number', 'issued_at', 'expires_at', 'subject_pinfl', 'subject_name', 'purpose', 'court_name', 'allowed_types', 'file_path', 'verification_status', 'verification_payload', 'verified_at'];
 
     protected $hidden = ['subject_pinfl', 'subject_pinfl_hash', 'verification_payload'];
 

@@ -8,6 +8,7 @@ use App\Models\AiAnalysis;
  * Serialises an AiAnalysis for the UI (TS type AiAnalysis in @/types/lexlink):
  * placeholders ([SHAXS_1] ...) are restored locally from structured._pii; JShShIR stays masked.
  * Callers must have already authorised the viewer (LegalCasePolicy::viewResponses).
+ * sent_payload is shown as sent (placeholders NOT restored) so the user sees exactly what reached the AI.
  */
 class AiAnalysisPresenter
 {
@@ -28,6 +29,9 @@ class AiAnalysisPresenter
             'output' => $a->output !== null ? PiiMasker::restore($a->output, $map) : null,
             'structured' => self::restoreDeep($structured, $map),
             'citations' => $a->citations ?? [],
+            // transparency: the exact egasizlantirilgan text that left the server + category counts (never the reverse map)
+            'sent_payload' => $a->sent_payload,
+            'anonymization' => $a->anonymization_report,
             'model' => $a->model,
             'prompt_version' => $a->prompt_version,
             'tokens' => (int) $a->tokens,

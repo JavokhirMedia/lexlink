@@ -3,6 +3,7 @@ import { ChevronRight, Inbox } from "lucide-react";
 import { MaskedPinfl } from "@/components/brand/masked-pinfl";
 import { PageHeader } from "@/components/brand/page-header";
 import { StatusBadge } from "@/components/brand/status-badge";
+import { RequestTypeIcon } from "@/components/requests/request-type-icon";
 import { formatDateTime } from "@/components/requests/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -175,11 +176,15 @@ export default function RequestsIndex({
                                         <td className="px-4 py-3">
                                             <Link
                                                 href={requestShow.url(r.id)}
-                                                className="font-medium hover:underline"
+                                                className="inline-flex items-center gap-1.5 font-medium hover:underline"
                                                 onClick={(e) =>
                                                     e.stopPropagation()
                                                 }
                                             >
+                                                <RequestTypeIcon
+                                                    type={r.type}
+                                                    className="size-4 shrink-0 text-muted-foreground"
+                                                />
                                                 {r.type_label}
                                             </Link>
                                             <p className="text-xs text-muted-foreground">

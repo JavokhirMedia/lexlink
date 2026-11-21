@@ -16,7 +16,7 @@ use Throwable;
  */
 final class DemoPersonas
 {
-    private const GROUP_ORDER = ['advocate_active', 'lawyer', 'advocate_revoked', 'admin', 'new'];
+    private const GROUP_ORDER = ['advocate_active', 'lawyer', 'client', 'advocate_revoked', 'admin', 'new'];
 
     /** @return list<array{pinfl: string, name: string, label: string, hint: string, group: string}> */
     public static function all(int $perGroup = 2): array
@@ -57,6 +57,7 @@ final class DemoPersonas
             [$group, $label] = match (true) {
                 $user?->role === UserRole::Admin => ['admin', 'Administrator'],
                 $user?->role === UserRole::Lawyer => ['lawyer', 'Yurist'],
+                $user?->role === UserRole::Client => ['client', 'Mijoz (ishonch bildiruvchi)'],
                 $user?->role === UserRole::Advocate && $registryStatus === 'active' => ['advocate_active', 'Advokat (litsenziya faol)'],
                 $user?->role === UserRole::Advocate => ['advocate_revoked', 'Advokat (litsenziya bekor qilingan)'],
                 // Not registered yet: onboarding will check the registry.

@@ -8,12 +8,15 @@ use App\Enums\DataRequestType;
 use App\Enums\LegalBasisType;
 use App\Http\Controllers\Controller;
 use App\Models\AdvocateLawyerLink;
+use App\Models\CaseClientLink;
 use App\Models\CaseMember;
 use App\Models\DataRequest;
 use App\Models\LegalCase;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\LegalBasisVerifier;
+use App\Support\LegalMatrix;
+use App\Support\RequestDeadline;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -177,8 +180,40 @@ class CaseController extends Controller
                 'accepted_bases' => array_map(fn (LegalBasisType $b) => $b->value, $t->acceptedBases()),
                 'secrecy_regime' => $t->secrecyRegime(),
             ])->values(),
-            'advocate_order_types' => LegalBasisVerifier::ADVOCATE_ORDER_TYPES,
+            'advocate_order_types' => LegalBasisVerifier::advocateOrderTypes(),
+            'order_matrix' => $this->orderMatrix(),
+            'client_links' => Gate::allows('addLegalBasis', $case)
+                ? CaseClientLink::where('case_id', $case->id)->latest('id')->get()->map(fn (CaseClientLink $l) => [
+                    'id' => $l->id,
+                    'order_number' => $l->order_number,
+                    'client_name' => $l->client_name,
+                    'url' => $l->revoked_at ? null : route('client.access', $l->token),
+                    'created_at' => $l->created_at?->toIso8601String(),
+                    'granted_at' => $l->granted_at?->toIso8601String(),
+                    'last_viewed_at' => $l->last_viewed_at?->toIso8601String(),
+                    'revoked_at' => $l->revoked_at?->toIso8601String(),
+                ])->values()
+                : [],
         ]);
+    }
+
+    /** Which types an advocate order may cover vs. which need a court decision (from LegalMatrix). */
+    private function orderMatrix(): array
+    {
+        $types = LegalMatrix::types();
+        $row = fn (string $v) => [
+            'value' => $v,
+            'label' => DataRequestType::from($v)->label(),
+            'why' => $types[$v]['why'] ?? null,
+        ];
+        $order = LegalMatrix::orderTypes();
+
+        return [
+            'order' => array_map($row, $order),
+            'court_only' => array_values(array_map($row, array_diff(array_keys($types), $order))),
+            'deadlines' => LegalMatrix::DEADLINES,
+            'law_ref' => RequestDeadline::LAW_REF,
+        ];
     }
 
     /** @return list<array{id: int, name: string}> */

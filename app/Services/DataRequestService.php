@@ -12,7 +12,9 @@ use App\Models\DataRequest;
 use App\Models\LegalBasis;
 use App\Models\LegalCase;
 use App\Models\User;
+use App\Services\Gov\GovDataProvider;
 use App\Support\Pinfl;
+use App\Support\RequestDeadline;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -87,7 +89,7 @@ class DataRequestService
 
     /**
      * Legal rule #1: the case must hold a verified, unexpired basis for the same person
-     * (PINFL) that covers this data type; salary (tax secret) only via court decision.
+     * (PINFL) that covers this data type; court-only types (LegalMatrix access 'court') need a court decision.
      *
      * Works on unsaved instances too (live check on the create page).
      *
@@ -111,11 +113,12 @@ class DataRequestService
             return $blocked("Ishda huquqiy asos yo'q — avval sud ajrimi yoki advokat orderini qo'shing");
         }
 
-        // 1. basis type accepted for this data type (salary = tax secret => court decision only)
+        // 1. basis type accepted for this data type (LegalMatrix::acceptedBases)
         $accepted = $bases->filter(fn (LegalBasis $b) => in_array($b->type, $type->acceptedBases(), true));
         if ($accepted->isEmpty()) {
-            return $blocked($type === DataRequestType::Salary
-                ? "Ish haqi soliq siri — faqat sud qarori asosida so'raladi (advokat orderi yetarli emas)"
+            // court-only types (LegalMatrix access = 'court'): salary, bank_accounts, border_crossing
+            return $blocked($type->access() === 'court'
+                ? "{$type->secrecyRegime()} so'raladi (advokat orderi yetarli emas)"
                 : "Ishdagi asos turi ushbu so'rov uchun qabul qilinmaydi");
         }
 
@@ -208,7 +211,10 @@ class DataRequestService
         }
         RateLimiter::hit($key, 60);
 
-        $r = DB::transaction(function () use ($r, $advocate, $check, $case) {
+        // Answer deadline (Advokatura to'g'risidagi Qonun 7¹-modda): 15 kun / 3 ish kuni if proceedings started.
+        $deadline = RequestDeadline::compute($r, $check['basis'], now(), app(GovDataProvider::class));
+
+        $r = DB::transaction(function () use ($r, $advocate, $check, $case, $deadline) {
             if ($billing = $this->billing()) {
                 try {
                     $billing->chargeForRequest($r, $advocate); // sets cost + charged_from_subscription
@@ -241,7 +247,7 @@ class DataRequestService
                 'basis' => $check['basis']->number,
             ], $case->id, $advocate);
 
-            return $this->transition($r, DataRequestStatus::Submitted, ['submitted_at' => now()], $advocate);
+            return $this->transition($r, DataRequestStatus::Submitted, ['submitted_at' => now()] + $deadline, $advocate);
         });
 
         SubmitGovRequestJob::dispatch($r->id);
@@ -374,6 +380,14 @@ class DataRequestService
             $out['period_from'] = $params['period_from'] ?? now()->subMonths(6)->format('Y-m');
             $out['period_to'] = $params['period_to'] ?? now()->subMonth()->format('Y-m');
         }
+        // optional period (months) for bank turnover / border crossings / tax data
+        if (in_array($type, [DataRequestType::BankAccounts, DataRequestType::BorderCrossing, DataRequestType::TaxInfo], true)) {
+            foreach (['period_from', 'period_to'] as $k) {
+                if (! empty($params[$k])) {
+                    $out[$k] = $params[$k];
+                }
+            }
+        }
         if ($type === DataRequestType::Property && ! empty($params['cadastral_number'])) {
             $out['cadastral_number'] = $params['cadastral_number'];
         }
@@ -415,6 +429,10 @@ class DataRequestService
             DataRequestType::Salary => 'ish haqi',
             DataRequestType::Property => "ko'chmas mulk",
             DataRequestType::Vehicle => 'avtotransport',
+            DataRequestType::TaxInfo => 'soliq',
+            DataRequestType::BusinessShares => 'yuridik shaxslardagi ulush',
+            DataRequestType::BankAccounts => 'bank hisobvaraqlari',
+            DataRequestType::BorderCrossing => "chegaradan o'tish",
         };
     }
 }

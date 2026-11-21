@@ -8,7 +8,12 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import type { ResponseMeta, ResponseSummary } from "./types";
-import { formatDate, formatDateTime, formatMonth } from "./types";
+import {
+    formatCurrency,
+    formatDate,
+    formatDateTime,
+    formatMonth,
+} from "./types";
 
 function Figure({
     label,
@@ -88,6 +93,120 @@ function Figures({ summary }: { summary: ResponseSummary }) {
                     <Figure
                         label="Eng yangi yil"
                         value={summary.newest_year ?? "—"}
+                    />
+                </div>
+            );
+        case "tax_info":
+            return (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <Figure
+                        label="Soliq qarzi"
+                        value={formatMoney(summary.tax_debt)}
+                    />
+                    <Figure
+                        label="O'tgan yili to'langan"
+                        value={formatMoney(summary.taxes_paid_last_year)}
+                    />
+                    <Figure
+                        label="YaTT"
+                        value={
+                            <span className="text-sm">
+                                {summary.is_individual_entrepreneur
+                                    ? "Ha"
+                                    : "Yo'q"}
+                            </span>
+                        }
+                        hint={summary.ie_activity ?? undefined}
+                    />
+                    <Figure
+                        label="Yuridik shaxslarda ishtirok"
+                        value={summary.participations_count}
+                        hint={summary.vat_payer ? "QQS to'lovchi" : undefined}
+                    />
+                </div>
+            );
+        case "business_shares":
+            return (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                    <Figure
+                        label="Yuridik shaxslar"
+                        value={summary.companies_count}
+                        hint={`faol: ${summary.active_count}`}
+                    />
+                    <Figure
+                        label="Ulushlar qiymati (nominal)"
+                        value={formatMoney(summary.total_share_value)}
+                        hint="Ustav fondi × ulush, PHP'da hisoblangan"
+                    />
+                    <Figure
+                        label="Eng katta ulush"
+                        value={
+                            summary.largest_share_percent !== null
+                                ? `${summary.largest_share_percent}%`
+                                : "—"
+                        }
+                    />
+                </div>
+            );
+        case "bank_accounts":
+            return (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <Figure
+                        label="Hisobvaraqlar"
+                        value={summary.accounts_count}
+                        hint={`${summary.banks_count} ta bankda`}
+                    />
+                    {Object.entries(summary.totals_by_currency).map(
+                        ([cur, t]) => (
+                            <Figure
+                                key={cur}
+                                label={`Qoldiq (${cur})`}
+                                value={formatCurrency(t.balance, cur)}
+                                hint={`${summary.turnover_months} oyda kirim ${formatCurrency(t.turnover_in, cur)}`}
+                            />
+                        ),
+                    )}
+                    <Figure
+                        label="Cheklov qo'yilgan"
+                        value={summary.restricted_count}
+                    />
+                </div>
+            );
+        case "border_crossing":
+            return (
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <Figure
+                        label="Hozir chet eldami"
+                        value={
+                            <span
+                                className={
+                                    summary.currently_abroad
+                                        ? "text-danger"
+                                        : undefined
+                                }
+                            >
+                                {summary.currently_abroad ? "Ha" : "Yo'q"}
+                            </span>
+                        }
+                        hint={
+                            summary.currently_abroad
+                                ? `${formatDate(summary.last_exit_date)} dan beri · ${summary.last_exit_country ?? ""}`
+                                : undefined
+                        }
+                    />
+                    <Figure
+                        label="Joriy safar"
+                        value={`${summary.days_abroad_current} kun`}
+                    />
+                    <Figure
+                        label="So'nggi 12 oyda chet elda"
+                        value={`${summary.days_abroad_last_12m} kun`}
+                        hint="PHP'da hisoblangan"
+                    />
+                    <Figure
+                        label="Chegaradan o'tishlar"
+                        value={summary.crossings_count}
+                        hint={summary.countries.join(", ") || undefined}
                     />
                 </div>
             );

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Anonymization\AnonymizationGateway;
+use App\Services\Ai\Anonymization\AnonymizedPayload;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -11,6 +13,10 @@ use RuntimeException;
 /**
  * Thin Gemini REST client (generativelanguage.googleapis.com v1beta).
  * The API key is sent in the `x-goog-api-key` header (never in the URL, so it never lands in logs).
+ *
+ * Gemini servers are outside Uzbekistan: generate()/embed()/embedQuery() accept ONLY an AnonymizedPayload,
+ * which only Anonymization\AnonymizationGateway can issue (private constructor + HMAC seal re-checked here).
+ * Passing a plain string is a TypeError; a forged / tampered payload is refused before any HTTP call.
  */
 class GeminiClient
 {
@@ -32,13 +38,14 @@ class GeminiClient
     /**
      * @return array{text: string, tokens: int, model: string}
      */
-    public function generate(string $system, string $prompt, array $options = []): array
+    public function generate(AnonymizedPayload $payload, array $options = []): array
     {
+        $this->assertIssued($payload, AnonymizedPayload::KIND_GENERATION);
         $model = $options['model'] ?? $this->model();
 
         $body = [
-            'systemInstruction' => ['parts' => [['text' => $system]]],
-            'contents' => [['role' => 'user', 'parts' => [['text' => $prompt]]]],
+            'systemInstruction' => ['parts' => [['text' => $payload->system]]],
+            'contents' => [['role' => 'user', 'parts' => [['text' => $payload->text]]]],
             'generationConfig' => array_filter([
                 'temperature' => $options['temperature'] ?? config('lexlink.ai.temperature', 0.2),
                 'maxOutputTokens' => $options['max_tokens'] ?? 8192,
@@ -63,11 +70,12 @@ class GeminiClient
     }
 
     /**
-     * @param  list<string>  $texts
      * @return list<list<float>>
      */
-    public function embed(array $texts, string $taskType = 'RETRIEVAL_DOCUMENT'): array
+    public function embed(AnonymizedPayload $payload, string $taskType = 'RETRIEVAL_DOCUMENT'): array
     {
+        $this->assertIssued($payload, AnonymizedPayload::KIND_EMBEDDING);
+        $texts = $payload->texts;
         $model = $this->embeddingModel();
         $dims = (int) config('lexlink.ai.embedding_dimensions', 768);
 
@@ -84,9 +92,9 @@ class GeminiClient
     }
 
     /** @return list<float> */
-    public function embedQuery(string $text): array
+    public function embedQuery(AnonymizedPayload $payload): array
     {
-        return $this->embed([$text], 'RETRIEVAL_QUERY')[0] ?? [];
+        return $this->embed($payload, 'RETRIEVAL_QUERY')[0] ?? [];
     }
 
     /** @return list<array{name: string, displayName: ?string, methods: list<string>}> */
@@ -115,6 +123,13 @@ class GeminiClient
         $norm = sqrt(array_sum(array_map(fn ($x) => $x * $x, $v)));
 
         return $norm > 0 ? array_map(fn ($x) => $x / $norm, $v) : $v;
+    }
+
+    private function assertIssued(AnonymizedPayload $payload, string $kind): void
+    {
+        if ($payload->kind !== $kind || ! AnonymizationGateway::verify($payload)) {
+            throw new RuntimeException('Refusing to call Gemini: payload was not issued by the AnonymizationGateway.');
+        }
     }
 
     private function http(): PendingRequest

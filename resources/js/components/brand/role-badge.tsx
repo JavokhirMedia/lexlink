@@ -15,6 +15,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
     advocate: 'Advokat',
     lawyer: 'Yurist',
     admin: 'Administrator',
+    client: 'Mijoz',
 };
 
 export function RoleBadge({

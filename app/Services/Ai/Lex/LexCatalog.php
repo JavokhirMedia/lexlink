@@ -25,6 +25,7 @@ class LexCatalog
             ['slug' => 'elektron-raqamli-imzo', 'lex_id' => '-6234904', 'cyrillic_id' => '6234904', 'short_title' => "ERI to'g'risida Qonun", 'title' => "Elektron raqamli imzo to'g'risida Qonun (O'RQ-793, 12.10.2022)"],
             ['slug' => 'axborotlashtirish', 'lex_id' => '-83472', 'cyrillic_id' => '83472', 'short_title' => "Axborotlashtirish to'g'risida Qonun", 'title' => "Axborotlashtirish to'g'risida Qonun (560-II, 11.12.2003)"],
             ['slug' => 'soliq-kodeksi', 'lex_id' => '-4674902', 'cyrillic_id' => '4674902', 'short_title' => 'Soliq kodeksi', 'title' => "O'zbekiston Respublikasining Soliq kodeksi (30.12.2019)", 'only' => ['29']],
+            ['slug' => 'bank-siri', 'lex_id' => '-41760', 'cyrillic_id' => '41760', 'short_title' => "Bank siri to'g'risida Qonun", 'title' => "Bank siri to'g'risida Qonun (530-II, 30.08.2003)"],
             ['slug' => 'mehnat-kodeksi', 'lex_id' => '-6257288', 'cyrillic_id' => null, 'short_title' => 'Mehnat kodeksi', 'title' => "O'zbekiston Respublikasining Mehnat kodeksi (28.10.2022)"],
         ];
     }

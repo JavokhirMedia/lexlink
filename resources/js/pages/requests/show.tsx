@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MaskedPinfl } from "@/components/brand/masked-pinfl";
+import { DeadlineChip } from "@/components/orders/deadline-chip";
 import { formatMoney } from "@/components/brand/money";
 import { PageHeader } from "@/components/brand/page-header";
 import { StatusBadge } from "@/components/brand/status-badge";
@@ -37,10 +38,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { index as casesIndex, show as caseShow } from "@/routes/cases";
 import { index as requestsIndex, requestSignature } from "@/routes/requests";
-import type { AiAnalysis, RequestStatusUpdatedEvent } from "@/types/lexlink";
+import type {
+    AiAnalysis,
+    RequestDeadlineFields,
+    RequestStatusUpdatedEvent,
+} from "@/types/lexlink";
 
 type Props = {
-    request: RequestDetail;
+    request: RequestDetail & Partial<RequestDeadlineFields>;
     case: { id: number; title: string; court_case_number: string | null };
     timeline: TimelineStep[];
     basis_check: BasisCheck | null;
@@ -202,6 +207,22 @@ export default function RequestShow(props: Props) {
                     }
                 />
 
+                {r.due_at && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <DeadlineChip
+                            dueAt={r.due_at}
+                            status={r.status}
+                            deadlineLabel={r.deadline_label}
+                            answeredOnTime={r.answered_on_time}
+                        />
+                        {r.deadline_label && (
+                            <span className="text-xs text-muted-foreground">
+                                {r.deadline_label}
+                            </span>
+                        )}
+                    </div>
+                )}
+
                 <Card>
                     <CardContent className="pt-6">
                         <StatusTimeline steps={timeline} />
@@ -346,7 +367,7 @@ export default function RequestShow(props: Props) {
                                         value={r.subject_pinfl_masked}
                                     />
                                 </Field>
-                                {r.type === "salary" && (
+                                {typeof params.period_from === "string" && (
                                     <Field label="Davr">
                                         {formatMonth(
                                             params.period_from as string,
